@@ -45,7 +45,8 @@ def recent_commits(repo: Path, relpath: str, limit: int, diff_max_chars: int) ->
             Commit(
                 sha=sha,
                 author=author,
-                date=datetime.fromisoformat(date),
+                # git prints "Z" for UTC; fromisoformat accepts it only from Python 3.11.
+                date=datetime.fromisoformat(date.replace("Z", "+00:00")),
                 subject=subject,
                 diff=diff[:diff_max_chars],
                 diff_truncated=len(diff) > diff_max_chars,

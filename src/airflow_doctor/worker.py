@@ -6,7 +6,6 @@ from __future__ import annotations
 import logging
 import re
 import time
-from datetime import datetime
 from pathlib import Path
 
 from airflow_doctor.collector import AirflowAPIError, AirflowClient, collect
@@ -35,13 +34,16 @@ def save_context(ctx: FailureContext, out_dir: Path) -> Path:
 
 
 def process(qjob: QueuedJob, client: AirflowClient, settings: Settings) -> Path:
-    job = FailureJob(
-        dag_id=qjob.dag_id,
-        run_id=qjob.run_id,
-        task_id=qjob.task_id,
-        try_number=qjob.try_number,
-        map_index=qjob.map_index,
-        failed_at=datetime.fromisoformat(qjob.failed_at) if qjob.failed_at else None,
+    # model_validate lets pydantic parse failed_at (accepts "Z" on every Python version).
+    job = FailureJob.model_validate(
+        {
+            "dag_id": qjob.dag_id,
+            "run_id": qjob.run_id,
+            "task_id": qjob.task_id,
+            "try_number": qjob.try_number,
+            "map_index": qjob.map_index,
+            "failed_at": qjob.failed_at,
+        }
     )
     ctx = collect(job, client, settings)
     return save_context(ctx, settings.contexts_dir)
