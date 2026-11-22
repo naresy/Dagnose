@@ -19,11 +19,16 @@ x-airflow-common: &airflow-common
     AIRFLOW__API_AUTH__JWT_ISSUER: airflow
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
     AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
+    # Airflow Doctor (dev): load the package from the repo instead of pip installing it.
+    PYTHONPATH: /opt/airflow/doctor-src
+    AIRFLOW_DOCTOR_HOME: /opt/airflow/doctor-data
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
     - ./config:/opt/airflow/config
     - ./plugins:/opt/airflow/plugins
+    - ../src:/opt/airflow/doctor-src:ro
+    - ./doctor-data:/opt/airflow/doctor-data
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on: &airflow-common-depends-on
     postgres:
@@ -50,9 +55,9 @@ services:
     command:
       - -c
       - |
-        mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins /opt/airflow/config
+        mkdir -p /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins /opt/airflow/config /opt/airflow/doctor-data
         /entrypoint airflow version
-        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins /opt/airflow/config
+        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/logs /opt/airflow/dags /opt/airflow/plugins /opt/airflow/config /opt/airflow/doctor-data
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: "true"
