@@ -8,8 +8,8 @@ When an Airflow task fails, engineers lose hours digging through logs, DAG code 
 
 ## How it works
 
-1. **Trigger:** an Airflow plugin listener (`on_task_instance_failed`) writes a tiny job (`dag_id`, `run_id`, `task_id`, `try_number`) to a local queue and returns. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Doctor.
-2. **Collect:** a separate `airflow-doctor worker` process picks up the job and reads everything through the Airflow REST API (`/api/v2` on 3.x, `/api/v1` on 2.x). It gathers the log tail, the exception and stack trace, the DAG source, task params, the last N runs, and recent git commits that touched the DAG.
+1. **Trigger:** an Airflow plugin listener (`on_task_instance_failed`) writes a tiny job file (`dag_id`, `run_id`, `task_id`, `try_number`) into a spool folder with an atomic rename, and returns. No locks, so many task processes can fail at once safely, even over Docker bind mounts or NFS. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Doctor.
+2. **Collect:** a separate `airflow-doctor worker` process moves spool files into its own SQLite queue (only the worker touches it), then reads everything through the Airflow REST API (`/api/v2` on 3.x, `/api/v1` on 2.x). It gathers the log tail, the exception and stack trace, the DAG source, task params, the last N runs, and recent git commits that touched the DAG.
 3. **Redact:** it strips secrets, connection strings, emails and tokens before anything reaches a model.
 4. **Recall:** it searches local incident memory for similar past failures, using an error fingerprint plus embeddings.
 5. **Diagnose:** an LLM with read-only tools (`get_log`, `get_dag_source`, `get_run_history`, `get_table_schema`, `search_past_incidents`) returns structured JSON with the summary, root cause, evidence lines, confidence and fix.
@@ -21,8 +21,8 @@ When an Airflow task fails, engineers lose hours digging through logs, DAG code 
 Airflow (scheduler / task process)          airflow-doctor worker (separate process)
 ┌────────────────────────────┐  job (tiny)  ┌───────────────────────────────────────────┐
 │ listener: task failed      │ ───────────► │ collector ──► redactor ──► memory (recall) │
-│ → enqueue, return, never   │ local queue  │      ──► agent (LLM + read-only tools)    │
-│   raise                    │              │      ──► fixer (PR) / notifier / memory   │
+│ → spool file, return,      │ spool folder │      ──► agent (LLM + read-only tools)    │
+│   never raise              │              │      ──► fixer (PR) / notifier / memory   │
 └────────────────────────────┘              └───────────────────────────────────────────┘
                  ▲                                         │
                  └──────────── Airflow REST API ◄──────────┘
@@ -34,7 +34,8 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 
 | Module | Role |
 |---|---|
-| `plugin` | Airflow listener plugin: enqueue failure jobs only |
+| `plugin` | Airflow listener plugin: write failure jobs to the spool only |
+| `queue` | Lock-free spool (listener side) + SQLite job queue (worker side) |
 | `worker` | Separate process that runs the pipeline for each job |
 | `collector` | REST API client (v2 / v1), log and metadata readers, git history |
 | `redactor` | Regex and entropy-based secret scrubbing |
@@ -74,7 +75,22 @@ uv run ruff check . && uv run mypy && uv run pytest
 cd dev && docker compose up -d            # local Airflow 3.3 at http://localhost:8080 (airflow / airflow)
 ```
 
-`dev/dags/broken/` holds deliberately broken DAGs (code bug, missing table, timeout, bad connection, missing dependency). Trigger them from the UI or REST API to produce real failures.
+The dev stack mounts `src/` into Airflow and loads the listener from `dev/plugins/`. Failed tasks land in `dev/doctor-data/spool/`.
+
+`dev/dags/broken/` holds deliberately broken DAGs (code bug, missing table, timeout, bad connection, missing dependency). Trigger them from the UI or REST API to produce real failures, then:
+
+```bash
+export AIRFLOW_DOCTOR_HOME=dev/doctor-data
+export AIRFLOW_DOCTOR_AIRFLOW_USERNAME=airflow AIRFLOW_DOCTOR_AIRFLOW_PASSWORD=airflow
+export AIRFLOW_DOCTOR_GIT_REPO_PATH=$PWD AIRFLOW_DOCTOR_GIT_DAGS_SUBDIR=dev/dags   # optional
+
+uv run airflow-doctor worker --once       # spool -> queue -> collect -> dev/doctor-data/contexts/*.json
+uv run airflow-doctor queue               # job counts by status
+uv run airflow-doctor collect <dag_id> <run_id> <task_id>   # one failure, JSON to stdout
+uv run python dev/record_fixtures.py      # refresh recorded API traffic + contexts in tests/fixtures/
+```
+
+Tests replay recorded real Airflow API traffic (`tests/fixtures/api/`), so they need no running Airflow. `tests/fixtures/contexts/` holds the collected `FailureContext` for each broken DAG, the input for the redactor and agent steps.
 
 Airflow support: 3.x first, 2.x kept working through the v1 REST API.
 

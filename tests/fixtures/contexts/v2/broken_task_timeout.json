@@ -1,0 +1,205 @@
+{
+  "job": {
+    "dag_id": "broken_task_timeout",
+    "run_id": "manual__2026-11-22T18:18:32.347806+00:00",
+    "task_id": "slow_api_export",
+    "try_number": 1,
+    "map_index": -1,
+    "failed_at": null
+  },
+  "airflow_version": "3.3.2",
+  "api_version": "v2",
+  "task_state": "failed",
+  "operator": "_PythonDecoratedOperator",
+  "hostname": "9a8bbeb22b0e",
+  "duration_s": 10.127995,
+  "task_params": {
+    "templates_dict": null,
+    "op_args": [],
+    "op_kwargs": {}
+  },
+  "run_conf": {},
+  "exceptions": [
+    {
+      "type": "AirflowTaskTimeout",
+      "message": "Timeout, PID: 66",
+      "frames": [
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 1579,
+          "name": "_run_task_and_map_outcome"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2234,
+          "name": "_execute_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2187,
+          "name": "_run_execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/decorator.py",
+          "lineno": 435,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 231,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 254,
+          "name": "execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/callback_runner.py",
+          "lineno": 97,
+          "name": "run"
+        },
+        {
+          "filename": "/opt/airflow/dags/broken/task_timeout.py",
+          "lineno": 22,
+          "name": "slow_api_export"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/timeout.py",
+          "lineno": 39,
+          "name": "handle_timeout"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "log_tail": [
+    {
+      "n": 1,
+      "timestamp": "2026-11-22T18:18:32.969597Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
+      "message": "DAG bundles loaded: dags-folder"
+    },
+    {
+      "n": 2,
+      "timestamp": "2026-11-22T18:18:32.970121Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.dagbag.BundleDagBag",
+      "message": "Filling up the DagBag from /opt/airflow/dags/broken/task_timeout.py"
+    },
+    {
+      "n": 3,
+      "timestamp": "2026-11-22T18:18:32.988531Z",
+      "level": "info",
+      "logger": "task",
+      "message": "Worker startup parse complete"
+    },
+    {
+      "n": 4,
+      "timestamp": "2026-11-22T18:18:33.013454Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Fetching page 1 from partner API ..."
+    },
+    {
+      "n": 5,
+      "timestamp": "2026-11-22T18:18:36.024562Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Fetching page 2 from partner API ..."
+    },
+    {
+      "n": 6,
+      "timestamp": "2026-11-22T18:18:39.027704Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Fetching page 3 from partner API ..."
+    },
+    {
+      "n": 7,
+      "timestamp": "2026-11-22T18:18:42.032837Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Fetching page 4 from partner API ..."
+    },
+    {
+      "n": 8,
+      "timestamp": "2026-11-22T18:18:43.023623Z",
+      "level": "error",
+      "logger": "task",
+      "message": "Process timed out"
+    },
+    {
+      "n": 9,
+      "timestamp": "2026-11-22T18:18:43.024306Z",
+      "level": "error",
+      "logger": "task",
+      "message": "Task failed with exception"
+    }
+  ],
+  "log_total_lines": 9,
+  "dag_file": "broken/task_timeout.py",
+  "dag_source": "\"\"\"Broken DAG: timeout. Task runs longer than its execution_timeout.\"\"\"\n\nimport time\nfrom datetime import datetime, timedelta\n\nfrom airflow.sdk import dag, task\n\n\n@dag(\n    dag_id=\"broken_task_timeout\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"timeout\"],\n    default_args={\"retries\": 0},\n)\ndef broken_task_timeout():\n    @task(execution_timeout=timedelta(seconds=10))\n    def slow_api_export() -> None:\n        for page in range(1, 100):\n            print(f\"Fetching page {page} from partner API ...\")\n            time.sleep(3)\n\n    slow_api_export()\n\n\nbroken_task_timeout()\n",
+  "run_history": [
+    {
+      "run_id": "manual__2026-11-22T18:18:32.347806+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-22T18:18:32.914038Z",
+      "end_date": "2026-11-22T18:18:43.042033Z",
+      "duration_s": 10.127995,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-22T17:07:36.298877+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-22T17:07:36.843376Z",
+      "end_date": "2026-11-22T17:07:48.721736Z",
+      "duration_s": 11.87836,
+      "is_current": false
+    },
+    {
+      "run_id": "manual__2026-11-22T15:34:51.191746+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-22T15:34:51.482973Z",
+      "end_date": "2026-11-22T15:35:03.411772Z",
+      "duration_s": 11.928799,
+      "is_current": false
+    }
+  ],
+  "recent_commits": [
+    {
+      "sha": "76157f23caca4bf850813afb031bdf6e7912fd9b",
+      "author": "naresy",
+      "date": "2026-11-22T10:38:08-05:00",
+      "subject": "src section added",
+      "diff": "diff --git a/dev/dags/broken/task_timeout.py b/dev/dags/broken/task_timeout.py\nnew file mode 100644\nindex 0000000..7c2ad11\n--- /dev/null\n+++ b/dev/dags/broken/task_timeout.py\n@@ -0,0 +1,27 @@\n+\"\"\"Broken DAG: timeout. Task runs longer than its execution_timeout.\"\"\"\n+\n+import time\n+from datetime import datetime, timedelta\n+\n+from airflow.sdk import dag, task\n+\n+\n+@dag(\n+    dag_id=\"broken_task_timeout\",\n+    schedule=None,\n+    start_date=datetime(2026, 1, 1),\n+    catchup=False,\n+    tags=[\"broken\", \"timeout\"],\n+    default_args={\"retries\": 0},\n+)\n+def broken_task_timeout():\n+    @task(execution_timeout=timedelta(seconds=10))\n+    def slow_api_export() -> None:\n+        for page in range(1, 100):\n+            print(f\"Fetching page {page} from partner API ...\")\n+            time.sleep(3)\n+\n+    slow_api_export()\n+\n+\n+broken_task_timeout()\n",
+      "diff_truncated": false
+    }
+  ],
+  "collection_errors": [],
+  "collected_at": "2026-11-22T19:21:59.059874Z"
+}
