@@ -194,7 +194,7 @@ Before launch, making it installable by other teams (in progress):
 
 ## License
 
-Apache 2.0 (planned)
+Apache 2.0, see [LICENSE](LICENSE). Changes: [CHANGELOG.md](CHANGELOG.md). Security issues: [SECURITY.md](SECURITY.md).
 
 ---
 

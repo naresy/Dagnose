@@ -1,10 +1,27 @@
 [project]
 name = "dagnose"
 version = "0.1.0"
-description = "Open source AI on-call engineer for Apache Airflow"
+description = "Open source AI on-call engineer for Apache Airflow: diagnoses failed tasks with evidence"
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+authors = [{ name = "naresy" }]
+keywords = ["airflow", "apache-airflow", "data-engineering", "on-call", "incident", "root-cause", "llm", "observability"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Apache Airflow",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
 dependencies = [
     "anthropic>=2.12.0",
     "httpx>=0.27",
@@ -12,6 +29,12 @@ dependencies = [
     "pydantic-settings>=2.3",
     "typer>=0.12",
 ]
+
+[project.urls]
+Homepage = "https://github.com/naresy/airflow_doctor"
+Documentation = "https://github.com/naresy/airflow_doctor/blob/main/docs/install.md"
+Issues = "https://github.com/naresy/airflow_doctor/issues"
+Changelog = "https://github.com/naresy/airflow_doctor/blob/main/CHANGELOG.md"
 
 [project.scripts]
 dagnose = "dagnose.cli:app"
