@@ -15,3 +15,5 @@ dev/config/
 dev/doctor-data/
 dev/airflow2/logs/
 dev/airflow2/doctor-data/
+.coverage
+coverage.xml

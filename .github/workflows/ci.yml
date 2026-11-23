@@ -1,21 +1,120 @@
 name: ci
+
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_call: # reused by release.yml so a release runs every check first
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  lint:
+    name: lint + types
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+
+  test:
+    name: tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv sync
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy
-      - run: uv run pytest
+      - run: uv sync --locked
+      - run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
+      - if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+
+  e2e:
+    name: e2e (Airflow ${{ matrix.airflow }})
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - airflow: "3"
+            compose-dir: dev
+            home: dev/doctor-data
+          - airflow: "2"
+            compose-dir: dev/airflow2
+            home: dev/airflow2/doctor-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked
+      # Containers write the spool as the runner user, so the worker on the host can
+      # read and delete the files.
+      - run: echo "AIRFLOW_UID=$(id -u)" >> "$GITHUB_ENV"
+      - name: Start Airflow ${{ matrix.airflow }}
+        working-directory: ${{ matrix.compose-dir }}
+        run: docker compose up -d
+      - name: Fail the broken DAGs, then check listener -> worker -> collector
+        run: uv run python dev/e2e.py --airflow ${{ matrix.airflow }} --timeout 900
+      - name: Airflow logs
+        if: failure()
+        working-directory: ${{ matrix.compose-dir }}
+        run: docker compose ps -a && docker compose logs --tail 200
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-airflow${{ matrix.airflow }}
+          path: |
+            ${{ matrix.home }}
+            ${{ matrix.compose-dir }}/logs
+          if-no-files-found: ignore
+      - name: Stop Airflow
+        if: always()
+        working-directory: ${{ matrix.compose-dir }}
+        run: docker compose down -v
+
+  build:
+    name: build package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv build
+      - name: Install the wheel in a clean venv and smoke test it
+        run: |
+          uv venv /tmp/clean
+          uv pip install --python /tmp/clean dist/*.whl
+          expected=$(uv run --no-project python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          installed=$(/tmp/clean/bin/airflow-doctor version)
+          echo "pyproject: $expected  installed: $installed"
+          test "$expected" = "$installed"
+          /tmp/clean/bin/python -c "from importlib.metadata import entry_points; eps = entry_points(group='airflow.plugins'); assert any(ep.name == 'airflow_doctor' for ep in eps), 'Airflow plugin entry point missing'"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
