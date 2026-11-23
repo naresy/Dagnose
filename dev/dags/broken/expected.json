@@ -1,9 +1,0 @@
-{
-  "_comment": "What Airflow Doctor must find for each broken DAG, on Airflow 2 and 3. Used by tests/ and dev/e2e.py. Update when a broken DAG changes. must_not_leak: fake secrets that must never appear in a redacted context. category: what a correct diagnosis should say (dev/diagnose_fixtures.py).",
-  "broken_python_keyerror": {"task_id": "compute_tax", "exception": "KeyError", "file": "python_keyerror.py", "line": 27, "category": "code_bug"},
-  "broken_missing_table": {"task_id": "daily_revenue", "exception": "OperationalError", "file": "missing_table.py", "line": 26, "category": "upstream_data"},
-  "broken_task_timeout": {"task_id": "slow_api_export", "exception": "AirflowTaskTimeout", "file": "task_timeout.py", "line": 25, "category": "timeout"},
-  "broken_bad_connection": {"task_id": "push_to_crm", "exception": "AirflowNotFoundException", "file": "bad_connection.py", "line": 32, "category": "config"},
-  "broken_missing_dependency": {"task_id": "score_customers", "exception": "ModuleNotFoundError", "file": "missing_dependency.py", "line": 22, "category": "dependency"},
-  "broken_leaky_credentials": {"task_id": "sync_crm", "exception": "PermissionError", "file": "leaky_credentials.py", "line": 33, "must_not_leak": ["Sup3r-S3cret-Pw", "ZmFrZS1zaWduYXR1cmUtZm9yLXRlc3Rz", "data-oncall@example.com", "ck_7Hq2LmX9pR4vT8wZ3nB6yK1d"], "category": "permissions"}
-}

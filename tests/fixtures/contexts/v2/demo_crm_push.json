@@ -1,0 +1,167 @@
+{
+  "job": {
+    "dag_id": "demo_crm_push",
+    "run_id": "manual__2026-11-23T16:53:40.913348+00:00",
+    "task_id": "push_to_crm",
+    "try_number": 1,
+    "map_index": -1,
+    "failed_at": null
+  },
+  "airflow_version": "3.3.2",
+  "api_version": "v2",
+  "task_state": "failed",
+  "operator": "_PythonDecoratedOperator",
+  "hostname": "9a8bbeb22b0e",
+  "duration_s": 0.146006,
+  "task_params": {
+    "templates_dict": null,
+    "op_args": [],
+    "op_kwargs": {}
+  },
+  "run_conf": {},
+  "exceptions": [
+    {
+      "type": "AirflowNotFoundException",
+      "qualified_type": null,
+      "message": "The conn_id `salesforce_prd` isn't defined",
+      "frames": [
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 1579,
+          "name": "_run_task_and_map_outcome"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2234,
+          "name": "_execute_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2192,
+          "name": "_run_execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/decorator.py",
+          "lineno": 435,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 231,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 254,
+          "name": "execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/callback_runner.py",
+          "lineno": 97,
+          "name": "run"
+        },
+        {
+          "filename": "/opt/airflow/dags/demo/crm_push.py",
+          "lineno": 31,
+          "name": "push_to_crm"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/definitions/connection.py",
+          "lineno": 296,
+          "name": "get"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/context.py",
+          "lineno": 231,
+          "name": "_get_connection"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "log_tail": [
+    {
+      "n": 1,
+      "timestamp": "2026-11-23T16:53:41.608876Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
+      "message": "DAG bundles loaded: dags-folder"
+    },
+    {
+      "n": 2,
+      "timestamp": "2026-11-23T16:53:41.609532Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.dagbag.BundleDagBag",
+      "message": "Filling up the DagBag from /opt/airflow/dags/demo/crm_push.py"
+    },
+    {
+      "n": 3,
+      "timestamp": "2026-11-23T16:53:41.639132Z",
+      "level": "info",
+      "logger": "task",
+      "message": "Worker startup parse complete"
+    },
+    {
+      "n": 4,
+      "timestamp": "2026-11-23T16:53:41.684684Z",
+      "level": "error",
+      "logger": "task",
+      "message": "Task failed with exception"
+    }
+  ],
+  "log_total_lines": 4,
+  "dag_file": "demo/crm_push.py",
+  "dag_source": "\"\"\"Push account updates to the CRM.\"\"\"\n\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\ntry:\n    from airflow.sdk import Connection\n\n    get_connection = Connection.get\nexcept ImportError:  # Airflow 2.x\n    from airflow.hooks.base import BaseHook\n\n    get_connection = BaseHook.get_connection\n\n\n@dag(\n    dag_id=\"demo_crm_push\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"crm\"],\n    default_args={\"retries\": 0},\n)\ndef demo_crm_push():\n    @task\n    def push_to_crm() -> None:\n        conn = get_connection(\"salesforce_prd\")\n        print(f\"Connecting to {conn.host}\")\n\n    push_to_crm()\n\n\ndemo_crm_push()\n",
+  "run_history": [
+    {
+      "run_id": "manual__2026-11-23T16:53:40.913348+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:41.548118Z",
+      "end_date": "2026-11-23T16:53:41.694124Z",
+      "duration_s": 0.146006,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-23T16:53:10.783576+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:11.466328Z",
+      "end_date": "2026-11-23T16:53:11.606711Z",
+      "duration_s": 0.140383,
+      "is_current": false
+    }
+  ],
+  "recent_commits": [
+    {
+      "sha": "9d8f0c76557ed76628b2864b3fd7888813456be7",
+      "author": "naresy",
+      "date": "2026-11-23T11:53:10-05:00",
+      "subject": "Neutral demo DAGs; fix run-history evidence check; cache only multi-turn calls",
+      "diff": "diff --git a/dev/dags/demo/crm_push.py b/dev/dags/demo/crm_push.py\nnew file mode 100644\nindex 0000000..ce083a0\n--- /dev/null\n+++ b/dev/dags/demo/crm_push.py\n@@ -0,0 +1,37 @@\n+\"\"\"Push account updates to the CRM.\"\"\"\n+\n+from datetime import datetime\n+\n+try:\n+    from airflow.sdk import dag, task\n+except ImportError:  # Airflow 2.x\n+    from airflow.decorators import dag, task\n+\n+try:\n+    from airflow.sdk import Connection\n+\n+    get_connection = Connection.get\n+except ImportError:  # Airflow 2.x\n+    from airflow.hooks.base import BaseHook\n+\n+    get_connection = BaseHook.get_connection\n+\n+\n+@dag(\n+    dag_id=\"demo_crm_push\",\n+    schedule=None,\n+    start_date=datetime(2026, 1, 1),\n+    catchup=False,\n+    tags=[\"crm\"],\n+    default_args={\"retries\": 0},\n+)\n+def demo_crm_push():\n+    @task\n+    def push_to_crm() -> None:\n+        conn = get_connection(\"salesforce_prd\")\n+        print(f\"Connecting to {conn.host}\")\n+\n+    push_to_crm()\n+\n+\n+demo_crm_push()\n",
+      "diff_truncated": false
+    }
+  ],
+  "collection_errors": [],
+  "collected_at": "2026-11-23T16:54:18.350765Z"
+}

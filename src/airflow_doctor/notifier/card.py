@@ -39,7 +39,7 @@ class EvidenceRow:
 class Card:
     dag_id: str
     task_id: str
-    title: str  # "broken_python_keyerror.compute_tax failed"
+    title: str  # "demo_orders_tax.compute_tax failed"
     headline: str  # "Code bug · confidence 0.92" or "Not diagnosed"
     summary: str
     root_cause: str | None = None

@@ -1,0 +1,157 @@
+{
+  "job": {
+    "dag_id": "demo_daily_revenue",
+    "run_id": "manual__2026-11-23T16:53:40.895408+00:00",
+    "task_id": "daily_revenue",
+    "try_number": 1,
+    "map_index": -1,
+    "failed_at": null
+  },
+  "airflow_version": "3.3.2",
+  "api_version": "v2",
+  "task_state": "failed",
+  "operator": "_PythonDecoratedOperator",
+  "hostname": "9a8bbeb22b0e",
+  "duration_s": 0.152184,
+  "task_params": {
+    "templates_dict": null,
+    "op_args": [],
+    "op_kwargs": {}
+  },
+  "run_conf": {},
+  "exceptions": [
+    {
+      "type": "OperationalError",
+      "qualified_type": null,
+      "message": "no such table: orders",
+      "frames": [
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 1579,
+          "name": "_run_task_and_map_outcome"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2234,
+          "name": "_execute_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2192,
+          "name": "_run_execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/decorator.py",
+          "lineno": 435,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 231,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 254,
+          "name": "execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/callback_runner.py",
+          "lineno": 97,
+          "name": "run"
+        },
+        {
+          "filename": "/opt/airflow/dags/demo/daily_revenue.py",
+          "lineno": 25,
+          "name": "daily_revenue"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "log_tail": [
+    {
+      "n": 1,
+      "timestamp": "2026-11-23T16:53:41.620093Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
+      "message": "DAG bundles loaded: dags-folder"
+    },
+    {
+      "n": 2,
+      "timestamp": "2026-11-23T16:53:41.620615Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.dagbag.BundleDagBag",
+      "message": "Filling up the DagBag from /opt/airflow/dags/demo/daily_revenue.py"
+    },
+    {
+      "n": 3,
+      "timestamp": "2026-11-23T16:53:41.645104Z",
+      "level": "info",
+      "logger": "task",
+      "message": "Worker startup parse complete"
+    },
+    {
+      "n": 4,
+      "timestamp": "2026-11-23T16:53:41.681482Z",
+      "level": "error",
+      "logger": "task",
+      "message": "Task failed with exception"
+    }
+  ],
+  "log_total_lines": 4,
+  "dag_file": "demo/daily_revenue.py",
+  "dag_source": "\"\"\"Daily revenue report.\"\"\"\n\nimport sqlite3\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"demo_daily_revenue\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"finance\", \"reporting\"],\n    default_args={\"retries\": 0},\n)\ndef demo_daily_revenue():\n    @task\n    def daily_revenue() -> int:\n        conn = sqlite3.connect(\"/tmp/warehouse.db\")\n        conn.execute(\"CREATE TABLE IF NOT EXISTS customers (id INTEGER, name TEXT)\")\n        row = conn.execute(\n            \"SELECT SUM(amount) FROM orders WHERE order_date = date('now')\"\n        ).fetchone()\n        return row[0] or 0\n\n    daily_revenue()\n\n\ndemo_daily_revenue()\n",
+  "run_history": [
+    {
+      "run_id": "manual__2026-11-23T16:53:40.895408+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:41.535499Z",
+      "end_date": "2026-11-23T16:53:41.687683Z",
+      "duration_s": 0.152184,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-23T16:53:10.762740+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:11.470419Z",
+      "end_date": "2026-11-23T16:53:11.603725Z",
+      "duration_s": 0.133306,
+      "is_current": false
+    }
+  ],
+  "recent_commits": [
+    {
+      "sha": "9d8f0c76557ed76628b2864b3fd7888813456be7",
+      "author": "naresy",
+      "date": "2026-11-23T11:53:10-05:00",
+      "subject": "Neutral demo DAGs; fix run-history evidence check; cache only multi-turn calls",
+      "diff": "diff --git a/dev/dags/demo/daily_revenue.py b/dev/dags/demo/daily_revenue.py\nnew file mode 100644\nindex 0000000..20cb05e\n--- /dev/null\n+++ b/dev/dags/demo/daily_revenue.py\n@@ -0,0 +1,33 @@\n+\"\"\"Daily revenue report.\"\"\"\n+\n+import sqlite3\n+from datetime import datetime\n+\n+try:\n+    from airflow.sdk import dag, task\n+except ImportError:  # Airflow 2.x\n+    from airflow.decorators import dag, task\n+\n+\n+@dag(\n+    dag_id=\"demo_daily_revenue\",\n+    schedule=None,\n+    start_date=datetime(2026, 1, 1),\n+    catchup=False,\n+    tags=[\"finance\", \"reporting\"],\n+    default_args={\"retries\": 0},\n+)\n+def demo_daily_revenue():\n+    @task\n+    def daily_revenue() -> int:\n+        conn = sqlite3.connect(\"/tmp/warehouse.db\")\n+        conn.execute(\"CREATE TABLE IF NOT EXISTS customers (id INTEGER, name TEXT)\")\n+        row = conn.execute(\n+            \"SELECT SUM(amount) FROM orders WHERE order_date = date('now')\"\n+        ).fetchone()\n+        return row[0] or 0\n+\n+    daily_revenue()\n+\n+\n+demo_daily_revenue()\n",
+      "diff_truncated": false
+    }
+  ],
+  "collection_errors": [],
+  "collected_at": "2026-11-23T16:54:18.870390Z"
+}

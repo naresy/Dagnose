@@ -15,7 +15,7 @@ from tests.conftest import FIXTURES, ReplayTransport, load_recording, recordings
 # What a correct collection must find for each broken DAG, on Airflow 2 and 3 alike:
 # exception type, and the DAG-code frame (file, line) the failure points to.
 # Shared with dev/e2e.py, which checks the same against a live Airflow.
-_EXPECTED_FILE = FIXTURES.parent.parent / "dev" / "dags" / "broken" / "expected.json"
+_EXPECTED_FILE = FIXTURES.parent.parent / "dev" / "dags" / "demo" / "expected.json"
 EXPECTED = {
     dag_id: (e["exception"], e["file"], e["line"])
     for dag_id, e in json.loads(_EXPECTED_FILE.read_text()).items()
@@ -38,7 +38,7 @@ def _collect(path: Path, settings: Any) -> Any:
 
 
 @pytest.mark.parametrize("api", ["v1", "v2"])
-def test_all_broken_dags_are_recorded(api: str) -> None:
+def test_all_demo_dags_are_recorded(api: str) -> None:
     assert {p.stem for p in recordings(api)} == set(EXPECTED)
 
 
@@ -83,7 +83,7 @@ def test_collect_matches_saved_context(path: Path, make_settings: Any) -> None:
 
 
 def test_airflow2_log_skips_source_block_and_keeps_full_type(make_settings: Any) -> None:
-    ctx = _collect(FIXTURES / "api" / "v1" / "broken_bad_connection.json", make_settings())
+    ctx = _collect(FIXTURES / "api" / "v1" / "demo_crm_push.json", make_settings())
     assert ctx.log_tail[0].timestamp is not None  # no hostname / "*** Found local files"
     assert not any(line.message.startswith("*** Found") for line in ctx.log_tail)
     assert ctx.exception is not None
@@ -91,19 +91,19 @@ def test_airflow2_log_skips_source_block_and_keeps_full_type(make_settings: Any)
 
 
 def test_keyerror_context_shows_the_bad_payload(make_settings: Any) -> None:
-    ctx = _collect(FIXTURES / "api" / "v2" / "broken_python_keyerror.json", make_settings())
+    ctx = _collect(FIXTURES / "api" / "v2" / "demo_orders_tax.json", make_settings())
     assert ctx.task_params["op_args"] == [{"amount": 19.99, "currency": "USD", "order_id": 42}]
 
 
 @pytest.mark.parametrize("api", ["v1", "v2"])
 def test_timeout_log_keeps_task_stdout(api: str, make_settings: Any) -> None:
-    ctx = _collect(FIXTURES / "api" / api / "broken_task_timeout.json", make_settings())
+    ctx = _collect(FIXTURES / "api" / api / "demo_partner_export.json", make_settings())
     messages = [line.message for line in ctx.log_tail]
     assert any("Fetching page 1" in m for m in messages)
 
 
 def test_one_failing_endpoint_does_not_lose_the_rest(make_settings: Any) -> None:
-    rec = load_recording(FIXTURES / "api" / "v2" / "broken_python_keyerror.json")
+    rec = load_recording(FIXTURES / "api" / "v2" / "demo_orders_tax.json")
     exchanges = [
         {**ex, "status": 500, "body": "boom"} if "/dagSources/" in ex["path"] else ex
         for ex in rec["exchanges"]
@@ -117,7 +117,7 @@ def test_one_failing_endpoint_does_not_lose_the_rest(make_settings: Any) -> None
 
 
 def test_try_number_defaults_to_latest(make_settings: Any) -> None:
-    rec = load_recording(FIXTURES / "api" / "v2" / "broken_python_keyerror.json")
+    rec = load_recording(FIXTURES / "api" / "v2" / "demo_orders_tax.json")
     job = FailureJob(**{**rec["job"], "try_number": None})
     settings = make_settings()
     with AirflowClient(settings, transport=ReplayTransport(rec["exchanges"])) as client:

@@ -2,13 +2,13 @@
 
 Diagnoses each recorded FailureContext in tests/fixtures/contexts/<api>/ (redacted
 first, like the worker does) and compares the category with
-dev/dags/broken/expected.json. Tools are off (no live Airflow needed), so this
+dev/dags/demo/expected.json. Tools are off (no live Airflow needed), so this
 measures the diagnosis from the collected context alone.
 
     export ANTHROPIC_API_KEY=...            # or AIRFLOW_DOCTOR_LLM_API_KEY, or `ant auth login`
     uv run python dev/diagnose_fixtures.py --yes-spend            # 6 diagnoses, Airflow 3
     uv run python dev/diagnose_fixtures.py --yes-spend --api v1   # Airflow 2 recordings
-    uv run python dev/diagnose_fixtures.py --yes-spend --only broken_python_keyerror
+    uv run python dev/diagnose_fixtures.py --yes-spend --only demo_orders_tax
 
 Each diagnosis is saved to dev/doctor-data/eval/<api>/<dag_id>.json for review.
 """
@@ -28,7 +28,7 @@ from airflow_doctor.redactor import Redactor
 ROOT = Path(__file__).resolve().parent.parent
 EXPECTED = {
     k: v
-    for k, v in json.loads((ROOT / "dev/dags/broken/expected.json").read_text()).items()
+    for k, v in json.loads((ROOT / "dev/dags/demo/expected.json").read_text()).items()
     if not k.startswith("_")
 }
 # Opus 5.5 list prices per 1M tokens (input, output, cache read). Estimate only.
@@ -56,7 +56,8 @@ def main() -> int:
     correct = 0
     cost = 0.0
     for path in paths:
-        expected = EXPECTED[path.stem]["category"]
+        accepted = EXPECTED[path.stem]["category"]
+        accepted = accepted if isinstance(accepted, list) else [accepted]
         session = Redactor.from_settings(settings).session()
         ctx = session.redact(FailureContext.model_validate_json(path.read_text()))
         try:
@@ -68,7 +69,7 @@ def main() -> int:
             continue
         (out_dir / path.name).write_text(run.model_dump_json(indent=2))
         d = run.diagnosis
-        ok = d.category == expected
+        ok = d.category in accepted
         correct += ok
         price = PRICES.get(provider.model)
         if price:
@@ -80,7 +81,8 @@ def main() -> int:
                 + u.cache_creation_input_tokens * price[0] * 1.25  # 5-minute cache writes
             ) / 1e6
         print(
-            f"{'ok  ' if ok else 'MISS'} {path.stem:27} {d.category:14} (want {expected:13}) "
+            f"{'ok  ' if ok else 'MISS'} {path.stem:24} {d.category:14} "
+            f"(want {'/'.join(accepted):24}) "
             f"conf {d.confidence:.2f} evidence {run.evidence_verified}/{run.evidence_total}"
         )
         print(f"     {d.summary}")

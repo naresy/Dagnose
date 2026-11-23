@@ -1,0 +1,157 @@
+{
+  "job": {
+    "dag_id": "demo_customer_scoring",
+    "run_id": "manual__2026-11-23T16:53:40.921028+00:00",
+    "task_id": "score_customers",
+    "try_number": 1,
+    "map_index": -1,
+    "failed_at": null
+  },
+  "airflow_version": "3.3.2",
+  "api_version": "v2",
+  "task_state": "failed",
+  "operator": "_PythonDecoratedOperator",
+  "hostname": "9a8bbeb22b0e",
+  "duration_s": 0.135789,
+  "task_params": {
+    "templates_dict": null,
+    "op_args": [],
+    "op_kwargs": {}
+  },
+  "run_conf": {},
+  "exceptions": [
+    {
+      "type": "ModuleNotFoundError",
+      "qualified_type": null,
+      "message": "No module named 'polars_ml_toolkit'",
+      "frames": [
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 1579,
+          "name": "_run_task_and_map_outcome"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2234,
+          "name": "_execute_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2192,
+          "name": "_run_execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/decorator.py",
+          "lineno": 435,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 231,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 254,
+          "name": "execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/callback_runner.py",
+          "lineno": 97,
+          "name": "run"
+        },
+        {
+          "filename": "/opt/airflow/dags/demo/customer_scoring.py",
+          "lineno": 22,
+          "name": "score_customers"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "log_tail": [
+    {
+      "n": 1,
+      "timestamp": "2026-11-23T16:53:41.619520Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
+      "message": "DAG bundles loaded: dags-folder"
+    },
+    {
+      "n": 2,
+      "timestamp": "2026-11-23T16:53:41.620097Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.dagbag.BundleDagBag",
+      "message": "Filling up the DagBag from /opt/airflow/dags/demo/customer_scoring.py"
+    },
+    {
+      "n": 3,
+      "timestamp": "2026-11-23T16:53:41.644207Z",
+      "level": "info",
+      "logger": "task",
+      "message": "Worker startup parse complete"
+    },
+    {
+      "n": 4,
+      "timestamp": "2026-11-23T16:53:41.688928Z",
+      "level": "error",
+      "logger": "task",
+      "message": "Task failed with exception"
+    }
+  ],
+  "log_total_lines": 4,
+  "dag_file": "demo/customer_scoring.py",
+  "dag_source": "\"\"\"Customer scoring.\"\"\"\n\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"demo_customer_scoring\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"ml\"],\n    default_args={\"retries\": 0},\n)\ndef demo_customer_scoring():\n    @task\n    def score_customers() -> None:\n        import polars_ml_toolkit\n\n        polars_ml_toolkit.score(\"customers.parquet\")\n\n    score_customers()\n\n\ndemo_customer_scoring()\n",
+  "run_history": [
+    {
+      "run_id": "manual__2026-11-23T16:53:40.921028+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:41.558775Z",
+      "end_date": "2026-11-23T16:53:41.694564Z",
+      "duration_s": 0.135789,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-23T16:53:10.793229+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:11.464537Z",
+      "end_date": "2026-11-23T16:53:11.611754Z",
+      "duration_s": 0.147217,
+      "is_current": false
+    }
+  ],
+  "recent_commits": [
+    {
+      "sha": "9d8f0c76557ed76628b2864b3fd7888813456be7",
+      "author": "naresy",
+      "date": "2026-11-23T11:53:10-05:00",
+      "subject": "Neutral demo DAGs; fix run-history evidence check; cache only multi-turn calls",
+      "diff": "diff --git a/dev/dags/demo/customer_scoring.py b/dev/dags/demo/customer_scoring.py\nnew file mode 100644\nindex 0000000..71841d8\n--- /dev/null\n+++ b/dev/dags/demo/customer_scoring.py\n@@ -0,0 +1,29 @@\n+\"\"\"Customer scoring.\"\"\"\n+\n+from datetime import datetime\n+\n+try:\n+    from airflow.sdk import dag, task\n+except ImportError:  # Airflow 2.x\n+    from airflow.decorators import dag, task\n+\n+\n+@dag(\n+    dag_id=\"demo_customer_scoring\",\n+    schedule=None,\n+    start_date=datetime(2026, 1, 1),\n+    catchup=False,\n+    tags=[\"ml\"],\n+    default_args={\"retries\": 0},\n+)\n+def demo_customer_scoring():\n+    @task\n+    def score_customers() -> None:\n+        import polars_ml_toolkit\n+\n+        polars_ml_toolkit.score(\"customers.parquet\")\n+\n+    score_customers()\n+\n+\n+demo_customer_scoring()\n",
+      "diff_truncated": false
+    }
+  ],
+  "collection_errors": [],
+  "collected_at": "2026-11-23T16:54:18.718528Z"
+}

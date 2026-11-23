@@ -5,7 +5,7 @@
 - The conversation is append-only and the assistant content is sent back exactly as
   returned, which keeps thinking blocks valid across turns.
 - Server-side refusal fallback is on by default (fallbacks="default").
-- Prompt caching on the stable prefix (system prompt + tools + context).
+- Prompt caching when tools are on (multi-turn); a one-turn call is not cached.
 """
 
 from __future__ import annotations
@@ -120,10 +120,12 @@ class AnthropicSession:
                 "effort": self.p.effort,
                 "format": {"type": "json_schema", "schema": self.output_schema},
             },
-            "cache_control": {"type": "ephemeral"},
         }
         if self.tools:
             kwargs["tools"] = self.tools
+            # Cache only when the conversation can have several turns. A one-turn
+            # diagnosis would pay the cache-write premium and never read it back.
+            kwargs["cache_control"] = {"type": "ephemeral"}
         try:
             if self.p.fallbacks:
                 response: Any = self.p.client.beta.messages.create(

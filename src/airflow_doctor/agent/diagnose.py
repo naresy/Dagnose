@@ -17,7 +17,12 @@ from datetime import datetime, timezone
 
 from pydantic import ValidationError
 
-from airflow_doctor.agent.prompt import DIAGNOSIS_SCHEMA, SYSTEM_PROMPT, render_context
+from airflow_doctor.agent.prompt import (
+    DIAGNOSIS_SCHEMA,
+    SYSTEM_PROMPT,
+    history_row,
+    render_context,
+)
 from airflow_doctor.agent.provider import LLMProvider, ToolResult
 from airflow_doctor.agent.tools import ToolBox
 from airflow_doctor.models import (
@@ -146,10 +151,7 @@ def verify_evidence(
         for e in ctx.exceptions
     )
     params = json.dumps({"task_params": ctx.task_params, "run_conf": ctx.run_conf}, default=str)
-    history = "\n".join(
-        f"{r.run_id} {r.state} {r.try_number} {r.start_date} {r.duration_s}"
-        for r in ctx.run_history
-    )
+    history = "\n".join(history_row(r) for r in ctx.run_history)
     commits = "\n".join(f"{c.sha} {c.subject}\n{c.diff}" for c in ctx.recent_commits)
     tools = "\n".join(tool_outputs)
 

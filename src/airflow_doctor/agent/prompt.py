@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from airflow_doctor.models import RedactedContext
+from airflow_doctor.models import RedactedContext, RunSummary
 
 SYSTEM_PROMPT = """\
 You are Airflow Doctor, an on-call engineer for Apache Airflow. You get the context of
@@ -102,6 +102,11 @@ DIAGNOSIS_SCHEMA: dict[str, Any] = {
 }
 
 
+def history_row(r: RunSummary) -> str:
+    """One run_history line, exactly as the model sees it (and as evidence is checked)."""
+    return f"{r.run_id} | {r.state} | {r.try_number} | {r.start_date} | {r.duration_s}"
+
+
 def render_context(ctx: RedactedContext) -> str:
     """The user message: every part of the context the model may cite, with line numbers."""
     job = ctx.job
@@ -159,9 +164,7 @@ def render_context(ctx: RedactedContext) -> str:
     )
     for r in ctx.run_history:
         current = "  <- this failure" if r.is_current else ""
-        parts.append(
-            f"{r.run_id} | {r.state} | {r.try_number} | {r.start_date} | {r.duration_s}{current}"
-        )
+        parts.append(history_row(r) + current)
     parts.append("</run_history>")
 
     parts.append('<recent_commits order="newest first">')

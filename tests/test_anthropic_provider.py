@@ -124,6 +124,7 @@ def test_without_fallbacks_uses_the_stable_endpoint() -> None:
     ).send()
     body = rec.body(0)
     assert "fallbacks" not in body and "tools" not in body
+    assert "cache_control" not in body  # one turn, nothing to reuse: no cache-write premium
     assert FALLBACK_BETA not in rec.requests[0].headers.get("anthropic-beta", "")
     assert body["output_config"]["effort"] == "medium"
 
