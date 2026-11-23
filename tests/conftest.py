@@ -55,6 +55,7 @@ def make_settings(tmp_path: Path) -> Any:
             "diagnose": False,
         }
         values.update(overrides)
-        return Settings(**values)
+        # Ignore a developer's .env (it may hold a real Slack webhook or API key).
+        return Settings(_env_file=None, **values)
 
     return factory

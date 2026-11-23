@@ -71,6 +71,16 @@ export AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 airflow-doctor setup
 ```
 
+Keep keys out of git: `.env` is git-ignored, CI fails if a real-looking key (Anthropic, OpenAI, AWS, GitHub, Slack, Stripe, private key) is in the repo (`dev/scan_secrets.py`), and `./dev/install_hooks.sh` adds a pre-commit hook that blocks such commits locally.
+
+Settings can also go in a `.env` file in the directory you run `airflow-doctor` from (git-ignored; real environment variables win over it):
+
+```bash
+# .env
+AIRFLOW_DOCTOR_LLM_API_KEY=sk-ant-...
+AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+```
+
 ## Development
 
 ```bash

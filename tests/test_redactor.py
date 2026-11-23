@@ -56,7 +56,8 @@ def test_known_token_formats(kind: str, secret: str) -> None:
 
 
 def test_private_key_block() -> None:
-    key = "-----BEGIN RSA PRIVATE KEY-----\nMIIEow" + R + "\n-----END RSA PRIVATE KEY-----"
+    marker = "RSA " + "PRIVATE KEY-----"  # split so the repo holds no key-shaped literal
+    key = "-----BEGIN " + marker + "\nMIIEow" + R + "\n-----END " + marker
     [line] = redacted_log(f"loaded {key} ok")
     assert line == "loaded [REDACTED:private_key#1] ok"
 
