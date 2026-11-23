@@ -85,7 +85,15 @@ class Redactor:
         )
 
     def redact(self, ctx: FailureContext) -> RedactedContext:
-        state = _State()
+        return self.session().redact(ctx)
+
+    def session(self) -> RedactionSession:
+        """A per-job session: later text (e.g. logs fetched by the agent's tools) gets
+        the same placeholders as the context. The value -> placeholder map lives in
+        memory only and is never serialized."""
+        return RedactionSession(self)
+
+    def _redact_with(self, ctx: FailureContext, state: _State) -> tuple[RedactedContext, Any]:
         data = ctx.model_dump(mode="json")
         data.pop("redactions", None)
         people = (
@@ -99,7 +107,8 @@ class Redactor:
             else None
         )
         walked = self._walk(data, "", state, people_re, in_params=False)
-        return RedactedContext.model_validate({**walked, "redactions": state.redactions})
+        redacted = RedactedContext.model_validate({**walked, "redactions": state.redactions})
+        return redacted, people_re
 
     # ---- tree walk ---------------------------------------------------------------
 
@@ -227,6 +236,23 @@ def _is_secret_value(value: Any) -> bool:
     if isinstance(value, (int, float)):
         return True
     return isinstance(value, str) and not is_placeholder_or_empty(value)
+
+
+class RedactionSession:
+    """Redacts one job's context and any follow-up text with one placeholder map."""
+
+    def __init__(self, redactor: Redactor) -> None:
+        self._redactor = redactor
+        self._state = _State()
+        self._people_re: re.Pattern[str] | None = None
+
+    def redact(self, ctx: FailureContext) -> RedactedContext:
+        redacted, self._people_re = self._redactor._redact_with(ctx, self._state)
+        return redacted
+
+    def redact_text(self, text: str, path: str, *, code: bool = False) -> str:
+        """Redact extra text (e.g. a tool result) with this job's placeholders."""
+        return self._redactor.redact_text(text, path, self._state, self._people_re, code=code)
 
 
 def redact(ctx: FailureContext, **kwargs: Any) -> RedactedContext:

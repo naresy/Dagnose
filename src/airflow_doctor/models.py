@@ -131,3 +131,80 @@ class RedactedContext(FailureContext):
         for r in self.redactions:
             seen.setdefault(r.kind, set()).add(r.placeholder)
         return {kind: len(placeholders) for kind, placeholders in sorted(seen.items())}
+
+
+# ---- diagnosis (agent output) -------------------------------------------------------
+
+DiagnosisCategory = Literal[
+    "code_bug",  # the DAG / task code is wrong
+    "upstream_data",  # input data missing, late, or in an unexpected shape
+    "dependency",  # a package / image / version problem
+    "config",  # connections, variables, settings, typos in ids
+    "permissions",  # auth or access denied
+    "timeout",  # ran longer than allowed
+    "infra",  # worker, memory, network, scheduler, database
+    "unknown",
+]
+EvidenceSource = Literal[
+    "log", "dag_source", "exception", "task_params", "run_history", "commit", "tool_result"
+]
+
+
+class Evidence(BaseModel):
+    """One fact the diagnosis rests on, quoted from the context so it can be checked."""
+
+    source: EvidenceSource
+    line: int | None = None  # log line n, or DAG source line number
+    quote: str  # exact text from that source
+    verified: bool = False  # set by Airflow Doctor, not the model: the quote was found there
+
+
+class Diagnosis(BaseModel):
+    summary: str  # one plain sentence a non-expert can read
+    category: DiagnosisCategory
+    root_cause: str
+    evidence: list[Evidence] = Field(default_factory=list)
+    confidence: float = Field(ge=0, le=1)
+    suggested_fix: str | None = None
+    patch: str | None = None  # unified diff against the DAG file, only for code fixes
+
+
+class ToolCallRecord(BaseModel):
+    name: str
+    input: dict[str, object] = Field(default_factory=dict)
+    is_error: bool = False
+
+
+class Usage(BaseModel):
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+
+    def __add__(self, other: Usage) -> Usage:
+        return Usage(
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            cache_read_input_tokens=self.cache_read_input_tokens + other.cache_read_input_tokens,
+            cache_creation_input_tokens=self.cache_creation_input_tokens
+            + other.cache_creation_input_tokens,
+        )
+
+
+class DiagnosisRun(BaseModel):
+    """A diagnosis plus how it was made. Saved next to the redacted context."""
+
+    job: FailureJob
+    diagnosis: Diagnosis
+    provider: str
+    model: str  # requested
+    served_model: str | None = None  # may differ when a fallback model answered
+    turns: int
+    tool_calls: list[ToolCallRecord] = Field(default_factory=list)
+    usage: Usage = Field(default_factory=Usage)
+    duration_s: float
+    evidence_verified: int = 0
+    evidence_total: int = 0
+    confidence_capped: bool = False  # lowered because the evidence did not check out
+    model_confidence: float  # what the model said, before any cap
+    created_at: datetime

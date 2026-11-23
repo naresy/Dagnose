@@ -171,6 +171,14 @@ class AirflowClient:
         resp = self._request("GET", f"/dagSources/{token}", headers={"Accept": "text/plain"})
         return resp.text
 
+    def run_task_instances(self, dag_id: str, run_id: str) -> list[dict[str, Any]]:
+        """All task instances of one DAG run (same path on v1 and v2)."""
+        data = self._get(
+            f"/dags/{_seg(dag_id)}/dagRuns/{_seg(run_id)}/taskInstances", params={"limit": 100}
+        )
+        tis: list[dict[str, Any]] = data.get("task_instances", [])
+        return tis
+
     def task_history(self, dag_id: str, task_id: str, limit: int) -> list[dict[str, Any]]:
         """Most recent task instances of this task across DAG runs, newest first."""
         body: dict[str, Any] = {"dag_ids": [dag_id], "task_ids": [task_id]}
