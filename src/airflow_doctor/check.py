@@ -87,6 +87,41 @@ def _airflow(settings: Settings, transport: httpx.BaseTransport | None) -> Itera
         )
 
         yield _watch(settings, client)
+        yield _task_logs(client)
+
+
+def _task_logs(client: AirflowClient) -> Result:
+    """Read the log of the most recent failed task: a broken Airflow logging setup
+    (components not sharing a secret key, no shared or remote logs) would otherwise
+    only show up as diagnoses without a log."""
+    from airflow_doctor.collector.logs import log_unavailable_reason, parse_log
+    from airflow_doctor.models import FailureJob
+
+    since = datetime.now(timezone.utc) - timedelta(days=7)
+    try:
+        recent = client.failed_task_instances(since, max_pages=1)
+    except AirflowAPIError as exc:
+        return Result("Task logs", "warn", f"could not list recent failures: {exc}")
+    if not recent:
+        return Result("Task logs", "skip", "no failed task in the last 7 days to test with")
+    ti = max(recent, key=lambda t: t.get("end_date") or "")
+    map_index = ti.get("map_index")
+    job = FailureJob(
+        dag_id=ti["dag_id"], run_id=ti["dag_run_id"], task_id=ti["task_id"],
+        map_index=-1 if map_index is None else int(map_index),
+    )  # fmt: skip
+    where = f"{job.dag_id}.{job.task_id}"
+    try:
+        raw = client.task_log(job, int(ti.get("try_number") or 1))
+    except AirflowAPIError as exc:
+        return Result("Task logs", "warn", f"could not read the log of {where}: {exc}",
+                      "The Airflow user needs permission to read task logs (the Viewer role has it).")  # fmt: skip
+    reason = log_unavailable_reason(raw)
+    if reason:
+        return Result("Task logs", "warn", f"Airflow could not serve the log of {where}",
+                      f"Fix your Airflow logging: {reason}. Until then diagnoses miss the log and the error.")  # fmt: skip
+    lines = len(parse_log(raw).lines)
+    return Result("Task logs", "ok", f"read the log of {where} ({lines} lines)")
 
 
 def _watch(settings: Settings, client: AirflowClient) -> Result:
