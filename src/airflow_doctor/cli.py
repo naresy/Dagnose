@@ -40,8 +40,11 @@ def collect_cmd(
     out: Annotated[
         Optional[Path], typer.Option(help="Write JSON here instead of stdout.")  # noqa: UP045
     ] = None,
+    raw: Annotated[
+        bool, typer.Option("--raw", help="Skip redaction. Output may contain secrets.")
+    ] = False,
 ) -> None:
-    """Collect the failure context of one task try and print it as JSON."""
+    """Collect the failure context of one task try and print it as JSON (redacted)."""
     from pydantic import ValidationError
 
     from airflow_doctor.collector import AirflowAPIError, AirflowClient, collect
@@ -67,6 +70,12 @@ def collect_cmd(
     except AirflowAPIError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(1) from exc
+    if not raw:
+        from airflow_doctor.redactor import Redactor
+
+        redacted = Redactor.from_settings(settings).redact(ctx)
+        _echo_summary(redacted.summary())
+        ctx = redacted
     data = ctx.model_dump_json(indent=2)
     if out:
         out.write_text(data)
@@ -75,6 +84,28 @@ def collect_cmd(
         typer.echo(data)
     for problem in ctx.collection_errors:
         typer.echo(f"warning: {problem}", err=True)
+
+
+def _echo_summary(summary: dict[str, int]) -> None:
+    if summary:
+        typer.echo("redacted: " + ", ".join(f"{k} x{n}" for k, n in summary.items()), err=True)
+    else:
+        typer.echo("redacted: nothing found", err=True)
+
+
+@app.command()
+def redact(
+    path: Annotated[Path, typer.Argument(help="A FailureContext JSON file.", exists=True)],
+) -> None:
+    """Redact a saved FailureContext JSON and print the result (summary on stderr)."""
+    from airflow_doctor.config import Settings
+    from airflow_doctor.models import FailureContext
+    from airflow_doctor.redactor import Redactor
+
+    ctx = FailureContext.model_validate_json(path.read_text())
+    redacted = Redactor.from_settings(Settings()).redact(ctx)
+    typer.echo(redacted.model_dump_json(indent=2))
+    _echo_summary(redacted.summary())
 
 
 @app.command()

@@ -109,3 +109,25 @@ class FailureContext(BaseModel):
     def exception(self) -> ExceptionInfo | None:
         """The exception that failed the task."""
         return self.exceptions[-1] if self.exceptions else None
+
+
+class Redaction(BaseModel):
+    """One redacted value: what kind it was and where. Never the value itself."""
+
+    kind: str  # e.g. "password", "jwt", "email", "secret_param"
+    path: str  # e.g. "log_tail[3].message", "task_params.op_kwargs.api_key"
+    placeholder: str  # e.g. "[REDACTED:password#1]"; same value -> same placeholder
+
+
+class RedactedContext(FailureContext):
+    """A FailureContext with secrets replaced by placeholders. The only form that may
+    leave the process (LLM calls) or be written to disk."""
+
+    redactions: list[Redaction] = Field(default_factory=list)
+
+    def summary(self) -> dict[str, int]:
+        """Number of distinct redacted values per kind."""
+        seen: dict[str, set[str]] = {}
+        for r in self.redactions:
+            seen.setdefault(r.kind, set()).add(r.placeholder)
+        return {kind: len(placeholders) for kind, placeholders in sorted(seen.items())}

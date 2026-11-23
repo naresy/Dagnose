@@ -61,7 +61,7 @@ def test_collect(path: Path, make_settings: Any) -> None:
     assert ctx.dag_source and "@dag(" in ctx.dag_source
     assert ctx.log_tail and any(line.level == "error" for line in ctx.log_tail)
     assert [line.n for line in ctx.log_tail] == list(range(1, len(ctx.log_tail) + 1))
-    assert ctx.task_params.get("op_kwargs") == {}  # rendered fields came through
+    assert "op_kwargs" in ctx.task_params  # rendered fields came through
 
     history = ctx.run_history
     assert len(history) >= 2

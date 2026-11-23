@@ -28,3 +28,34 @@ def test_airflow_down_keeps_job_for_later(
     queue = JobQueue(settings.queue_path)
     assert queue.counts() == {"pending": 1}
     assert queue.claim() is None  # backoff not over yet
+
+
+def test_worker_saves_only_redacted_context(
+    make_settings: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The raw context (with secrets) must never be written to disk."""
+    from tests.conftest import FIXTURES, ReplayTransport, load_recording
+
+    rec = load_recording(FIXTURES / "api" / "v2" / "broken_leaky_credentials.json")
+    settings = make_settings()
+    job = rec["job"]
+    JobQueue(settings.queue_path).enqueue(
+        job["dag_id"], job["run_id"], job["task_id"], job["try_number"]
+    )
+    real_client = airflow_api.AirflowClient
+    monkeypatch.setattr(
+        worker,
+        "AirflowClient",
+        lambda s: real_client(s, transport=ReplayTransport(rec["exchanges"])),
+    )
+
+    assert worker.run(settings, once=True) == 1
+    [saved] = list(settings.contexts_dir.glob("*.json"))
+    text = saved.read_text()
+    for secret in (
+        "Sup3r-S3cret-Pw",
+        "data-oncall@example.com",
+        "ZmFrZS1zaWduYXR1cmUtZm9yLXRlc3Rz",
+    ):
+        assert secret not in text
+    assert '"redactions"' in text and "[REDACTED:password#1]" in text
