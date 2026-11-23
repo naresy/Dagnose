@@ -1,7 +1,7 @@
 {
   "job": {
     "dag_id": "broken_missing_table",
-    "run_id": "manual__2026-11-23T02:24:40.602893+00:00",
+    "run_id": "manual__2026-11-23T13:42:05.496737+00:00",
     "task_id": "daily_revenue",
     "try_number": 1,
     "map_index": -1,
@@ -12,7 +12,7 @@
   "task_state": "failed",
   "operator": "_PythonDecoratedOperator",
   "hostname": "b67505efb6ac",
-  "duration_s": 0.092025,
+  "duration_s": 0.093729,
   "task_params": {
     "op_args": [],
     "op_kwargs": {},
@@ -137,77 +137,77 @@
   "log_tail": [
     {
       "n": 1,
-      "timestamp": "2026-11-23T02:24:40.873+0000",
+      "timestamp": "2026-11-23T13:42:05.644+0000",
       "level": "info",
       "logger": "taskinstance.py:2631",
-      "message": "Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: broken_missing_table.daily_revenue manual__2026-11-23T02:24:40.602893+00:00 [queued]>"
+      "message": "Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: broken_missing_table.daily_revenue manual__2026-11-23T13:42:05.496737+00:00 [queued]>"
     },
     {
       "n": 2,
-      "timestamp": "2026-11-23T02:24:40.877+0000",
+      "timestamp": "2026-11-23T13:42:05.650+0000",
       "level": "info",
       "logger": "taskinstance.py:2631",
-      "message": "Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: broken_missing_table.daily_revenue manual__2026-11-23T02:24:40.602893+00:00 [queued]>"
+      "message": "Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: broken_missing_table.daily_revenue manual__2026-11-23T13:42:05.496737+00:00 [queued]>"
     },
     {
       "n": 3,
-      "timestamp": "2026-11-23T02:24:40.877+0000",
+      "timestamp": "2026-11-23T13:42:05.651+0000",
       "level": "info",
       "logger": "taskinstance.py:2884",
       "message": "Starting attempt 1 of 1"
     },
     {
       "n": 4,
-      "timestamp": "2026-11-23T02:24:40.885+0000",
+      "timestamp": "2026-11-23T13:42:05.655+0000",
       "level": "info",
       "logger": "taskinstance.py:2907",
-      "message": "Executing <Task(_PythonDecoratedOperator): daily_revenue> on 2026-11-23 02:24:40.602893+00:00"
+      "message": "Executing <Task(_PythonDecoratedOperator): daily_revenue> on 2026-11-23 13:42:05.496737+00:00"
     },
     {
       "n": 5,
-      "timestamp": "2026-11-23T02:24:40.888+0000",
+      "timestamp": "2026-11-23T13:42:05.659+0000",
       "level": "warning",
       "logger": "logging_mixin.py:190",
-      "message": "/home/***/.local/lib/python3.12/site-packages/***/task/task_runner/standard_task_runner.py:70 DeprecationWarning: This process (pid=349) is multi-threaded, use of fork() may lead to deadlocks in the child."
+      "message": "/home/***/.local/lib/python3.12/site-packages/***/task/task_runner/standard_task_runner.py:70 DeprecationWarning: This process (pid=3919) is multi-threaded, use of fork() may lead to deadlocks in the child."
     },
     {
       "n": 6,
-      "timestamp": "2026-11-23T02:24:40.889+0000",
+      "timestamp": "2026-11-23T13:42:05.659+0000",
       "level": "info",
-      "logger": "standard_task_runner.py:72",
-      "message": "Started process 355 to run task"
+      "logger": "standard_task_runner.py:104",
+      "message": "Running: ['***', 'tasks', 'run', 'broken_missing_table', 'daily_revenue', 'manual__2026-11-23T13:42:05.496737+00:00', '--job-id', '28', '--raw', '--subdir', 'DAGS_FOLDER/broken/missing_table.py', '--cfg-path', '/tmp/tmp5hfyiggz']"
     },
     {
       "n": 7,
-      "timestamp": "2026-11-23T02:24:40.889+0000",
+      "timestamp": "2026-11-23T13:42:05.660+0000",
       "level": "info",
-      "logger": "standard_task_runner.py:104",
-      "message": "Running: ['***', 'tasks', 'run', 'broken_missing_table', 'daily_revenue', 'manual__2026-11-23T02:24:40.602893+00:00', '--job-id', '10', '--raw', '--subdir', 'DAGS_FOLDER/broken/missing_table.py', '--cfg-path', '/tmp/tmpq6a9eb_2']"
+      "logger": "standard_task_runner.py:72",
+      "message": "Started process 3921 to run task"
     },
     {
       "n": 8,
-      "timestamp": "2026-11-23T02:24:40.890+0000",
+      "timestamp": "2026-11-23T13:42:05.661+0000",
       "level": "info",
       "logger": "standard_task_runner.py:105",
-      "message": "Job 10: Subtask daily_revenue"
+      "message": "Job 28: Subtask daily_revenue"
     },
     {
       "n": 9,
-      "timestamp": "2026-11-23T02:24:40.914+0000",
+      "timestamp": "2026-11-23T13:42:05.692+0000",
       "level": "info",
       "logger": "task_command.py:467",
-      "message": "Running <TaskInstance: broken_missing_table.daily_revenue manual__2026-11-23T02:24:40.602893+00:00 [running]> on host b67505efb6ac"
+      "message": "Running <TaskInstance: broken_missing_table.daily_revenue manual__2026-11-23T13:42:05.496737+00:00 [running]> on host b67505efb6ac"
     },
     {
       "n": 10,
-      "timestamp": "2026-11-23T02:24:40.955+0000",
+      "timestamp": "2026-11-23T13:42:05.730+0000",
       "level": "info",
       "logger": "taskinstance.py:3157",
-      "message": "Exporting env vars: AIRFLOW_CTX_DAG_OWNER='***' AIRFLOW_CTX_DAG_ID='broken_missing_table' AIRFLOW_CTX_TASK_ID='daily_revenue' AIRFLOW_CTX_EXECUTION_DATE='2026-11-23T02:24:40.602893+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='manual__2026-11-23T02:24:40.602893+00:00'"
+      "message": "Exporting env vars: AIRFLOW_CTX_DAG_OWNER='***' AIRFLOW_CTX_DAG_ID='broken_missing_table' AIRFLOW_CTX_TASK_ID='daily_revenue' AIRFLOW_CTX_EXECUTION_DATE='2026-11-23T13:42:05.496737+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='manual__2026-11-23T13:42:05.496737+00:00'"
     },
     {
       "n": 11,
-      "timestamp": "2026-11-23T02:24:40.958+0000",
+      "timestamp": "2026-11-23T13:42:05.733+0000",
       "level": "error",
       "logger": "taskinstance.py:3336",
       "message": "Task failed with exception"
@@ -438,17 +438,17 @@
     },
     {
       "n": 44,
-      "timestamp": "2026-11-23T02:24:40.967+0000",
+      "timestamp": "2026-11-23T13:42:05.741+0000",
       "level": "info",
       "logger": "taskinstance.py:1242",
-      "message": "Marking task as FAILED. dag_id=broken_missing_table, task_id=daily_revenue, run_id=manual__2026-11-23T02:24:40.602893+00:00, execution_date=20261123T022440, start_date=20261123T022440, end_date=20261123T022440"
+      "message": "Marking task as FAILED. dag_id=broken_missing_table, task_id=daily_revenue, run_id=manual__2026-11-23T13:42:05.496737+00:00, execution_date=20261123T134205, start_date=20261123T134205, end_date=20261123T134205"
     },
     {
       "n": 45,
-      "timestamp": "2026-11-23T02:24:40.981+0000",
+      "timestamp": "2026-11-23T13:42:05.755+0000",
       "level": "error",
       "logger": "standard_task_runner.py:124",
-      "message": "Failed to execute job 10 for task daily_revenue (no such table: orders; 355)"
+      "message": "Failed to execute job 28 for task daily_revenue (no such table: orders; 3921)"
     },
     {
       "n": 46,
@@ -900,14 +900,14 @@
     },
     {
       "n": 110,
-      "timestamp": "2026-11-23T02:24:40.985+0000",
+      "timestamp": "2026-11-23T13:42:05.759+0000",
       "level": "info",
       "logger": "local_task_job_runner.py:266",
       "message": "Task exited with return code 1"
     },
     {
       "n": 111,
-      "timestamp": "2026-11-23T02:24:40.993+0000",
+      "timestamp": "2026-11-23T13:42:05.767+0000",
       "level": "info",
       "logger": "taskinstance.py:3924",
       "message": "0 downstream tasks scheduled from follow-on schedule check"
@@ -918,13 +918,40 @@
   "dag_source": "\"\"\"Broken DAG: upstream data. Query against a table that was never created.\"\"\"\n\nimport sqlite3\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"broken_missing_table\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"upstream_data\"],\n    default_args={\"retries\": 0},\n)\ndef broken_missing_table():\n    @task\n    def daily_revenue() -> int:\n        conn = sqlite3.connect(\"/tmp/warehouse.db\")\n        conn.execute(\"CREATE TABLE IF NOT EXISTS customers (id INTEGER, name TEXT)\")\n        # The orders table is loaded by another pipeline that has not run.\n        row = conn.execute(\n            \"SELECT SUM(amount) FROM orders WHERE order_date = date('now')\"\n        ).fetchone()\n        return row[0] or 0\n\n    daily_revenue()\n\n\nbroken_missing_table()\n",
   "run_history": [
     {
+      "run_id": "manual__2026-11-23T13:42:05.496737+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T13:42:05.646006Z",
+      "end_date": "2026-11-23T13:42:05.739735Z",
+      "duration_s": 0.093729,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-23T13:39:32.117037+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T13:39:32.718047Z",
+      "end_date": "2026-11-23T13:39:32.880600Z",
+      "duration_s": 0.162553,
+      "is_current": false
+    },
+    {
+      "run_id": "manual__2026-11-23T02:33:00.956089+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T02:33:01.777068Z",
+      "end_date": "2026-11-23T02:33:01.869849Z",
+      "duration_s": 0.092781,
+      "is_current": false
+    },
+    {
       "run_id": "manual__2026-11-23T02:24:40.602893+00:00",
       "state": "failed",
       "try_number": 1,
       "start_date": "2026-11-23T02:24:40.873613Z",
       "end_date": "2026-11-23T02:24:40.965638Z",
       "duration_s": 0.092025,
-      "is_current": true
+      "is_current": false
     },
     {
       "run_id": "manual__2026-11-23T02:23:20.874312+00:00",
@@ -938,6 +965,14 @@
   ],
   "recent_commits": [
     {
+      "sha": "be2fbfbb87d3ed8a3bd112bc7c07e8c3391b9731",
+      "author": "naresy",
+      "date": "2026-11-22T21:26:09-05:00",
+      "subject": "Finish step 1: verify on real Airflow 2.11, retry backoff, dedupe fix",
+      "diff": "diff --git a/dev/dags/broken/missing_table.py b/dev/dags/broken/missing_table.py\nindex 9dcb25c..6427b45 100644\n--- a/dev/dags/broken/missing_table.py\n+++ b/dev/dags/broken/missing_table.py\n@@ -3,7 +3,10 @@\n import sqlite3\n from datetime import datetime\n \n-from airflow.sdk import dag, task\n+try:\n+    from airflow.sdk import dag, task\n+except ImportError:  # Airflow 2.x\n+    from airflow.decorators import dag, task\n \n \n @dag(\n",
+      "diff_truncated": false
+    },
+    {
       "sha": "76157f23caca4bf850813afb031bdf6e7912fd9b",
       "author": "naresy",
       "date": "2026-11-22T10:38:08-05:00",
@@ -947,5 +982,5 @@
     }
   ],
   "collection_errors": [],
-  "collected_at": "2026-11-23T02:25:20.546108Z"
+  "collected_at": "2026-11-23T13:42:31.625216Z"
 }

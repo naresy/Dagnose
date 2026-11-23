@@ -1,7 +1,7 @@
 {
   "job": {
     "dag_id": "broken_python_keyerror",
-    "run_id": "manual__2026-11-23T02:24:40.385167+00:00",
+    "run_id": "manual__2026-11-23T13:41:52.252253+00:00",
     "task_id": "compute_tax",
     "try_number": 1,
     "map_index": -1,
@@ -12,7 +12,7 @@
   "task_state": "failed",
   "operator": "_PythonDecoratedOperator",
   "hostname": "9a8bbeb22b0e",
-  "duration_s": 0.080299,
+  "duration_s": 0.058367,
   "task_params": {
     "templates_dict": null,
     "op_args": [
@@ -98,28 +98,28 @@
   "log_tail": [
     {
       "n": 1,
-      "timestamp": "2026-11-23T02:24:41.908526Z",
+      "timestamp": "2026-11-23T13:41:54.348674Z",
       "level": "info",
       "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
       "message": "DAG bundles loaded: dags-folder"
     },
     {
       "n": 2,
-      "timestamp": "2026-11-23T02:24:41.909485Z",
+      "timestamp": "2026-11-23T13:41:54.349140Z",
       "level": "info",
       "logger": "airflow.dag_processing.dagbag.BundleDagBag",
       "message": "Filling up the DagBag from /opt/airflow/dags/broken/python_keyerror.py"
     },
     {
       "n": 3,
-      "timestamp": "2026-11-23T02:24:41.932081Z",
+      "timestamp": "2026-11-23T13:41:54.366381Z",
       "level": "info",
       "logger": "task",
       "message": "Worker startup parse complete"
     },
     {
       "n": 4,
-      "timestamp": "2026-11-23T02:24:41.957197Z",
+      "timestamp": "2026-11-23T13:41:54.382161Z",
       "level": "error",
       "logger": "task",
       "message": "Task failed with exception"
@@ -130,13 +130,40 @@
   "dag_source": "\"\"\"Broken DAG: code bug. Downstream task reads a key the upstream payload never had.\"\"\"\n\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"broken_python_keyerror\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"code_bug\"],\n    default_args={\"retries\": 0},\n)\ndef broken_python_keyerror():\n    @task\n    def extract_orders() -> dict:\n        return {\"order_id\": 42, \"amount\": 19.99, \"currency\": \"USD\"}\n\n    @task\n    def compute_tax(order: dict) -> float:\n        # Bug: upstream renamed \"country\" away; nobody updated this task.\n        return order[\"amount\"] * TAX_RATES[order[\"country\"]]\n\n    compute_tax(extract_orders())\n\n\nTAX_RATES = {\"US\": 0.07, \"DE\": 0.19}\n\nbroken_python_keyerror()\n",
   "run_history": [
     {
+      "run_id": "manual__2026-11-23T13:41:52.252253+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T13:41:54.329732Z",
+      "end_date": "2026-11-23T13:41:54.388099Z",
+      "duration_s": 0.058367,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-23T13:39:18.883945+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T13:39:21.105498Z",
+      "end_date": "2026-11-23T13:39:21.155401Z",
+      "duration_s": 0.049903,
+      "is_current": false
+    },
+    {
+      "run_id": "manual__2026-11-23T02:32:47.462443+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T02:32:49.691622Z",
+      "end_date": "2026-11-23T02:32:49.734653Z",
+      "duration_s": 0.043031,
+      "is_current": false
+    },
+    {
       "run_id": "manual__2026-11-23T02:24:40.385167+00:00",
       "state": "failed",
       "try_number": 1,
       "start_date": "2026-11-23T02:24:41.884877Z",
       "end_date": "2026-11-23T02:24:41.965176Z",
       "duration_s": 0.080299,
-      "is_current": true
+      "is_current": false
     },
     {
       "run_id": "manual__2026-11-22T18:18:32.299838+00:00",
@@ -168,6 +195,14 @@
   ],
   "recent_commits": [
     {
+      "sha": "be2fbfbb87d3ed8a3bd112bc7c07e8c3391b9731",
+      "author": "naresy",
+      "date": "2026-11-22T21:26:09-05:00",
+      "subject": "Finish step 1: verify on real Airflow 2.11, retry backoff, dedupe fix",
+      "diff": "diff --git a/dev/dags/broken/python_keyerror.py b/dev/dags/broken/python_keyerror.py\nindex 1cb5c52..823a4d1 100644\n--- a/dev/dags/broken/python_keyerror.py\n+++ b/dev/dags/broken/python_keyerror.py\n@@ -2,7 +2,10 @@\n \n from datetime import datetime\n \n-from airflow.sdk import dag, task\n+try:\n+    from airflow.sdk import dag, task\n+except ImportError:  # Airflow 2.x\n+    from airflow.decorators import dag, task\n \n \n @dag(\n",
+      "diff_truncated": false
+    },
+    {
       "sha": "76157f23caca4bf850813afb031bdf6e7912fd9b",
       "author": "naresy",
       "date": "2026-11-22T10:38:08-05:00",
@@ -177,5 +212,5 @@
     }
   ],
   "collection_errors": [],
-  "collected_at": "2026-11-23T02:25:18.602088Z"
+  "collected_at": "2026-11-23T13:42:28.973827Z"
 }

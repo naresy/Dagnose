@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     git_commit_limit: int = 5
     git_diff_max_chars: int = 4000
 
+    # Redaction (always on; these only tune it). Lists are JSON in env vars, e.g.
+    # AIRFLOW_DOCTOR_REDACT_EXTRA_PATTERNS='["INTERNAL-[0-9]{6}"]'
+    redact_extra_patterns: list[str] = Field(default_factory=list)  # also redact these
+    redact_allow_patterns: list[str] = Field(default_factory=list)  # never redact these
+    redact_people: bool = True  # git author names
+
     home: Path = Field(default_factory=default_home)
 
     @property

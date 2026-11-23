@@ -22,7 +22,7 @@ import httpx
 
 from airflow_doctor import worker
 from airflow_doctor.config import Settings
-from airflow_doctor.models import FailureContext
+from airflow_doctor.models import RedactedContext
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPECTED: dict[str, dict[str, Any]] = {
@@ -98,7 +98,9 @@ class Airflow:
         return str(run["state"])
 
 
-def check_context(ctx: FailureContext, expected: dict[str, Any], api: str, major: str) -> list[str]:
+def check_context(
+    ctx: RedactedContext, expected: dict[str, Any], api: str, major: str
+) -> list[str]:
     problems: list[str] = []
 
     def expect(ok: bool, what: str) -> None:
@@ -132,6 +134,16 @@ def check_context(ctx: FailureContext, expected: dict[str, Any], api: str, major
         "run history: current run not first",
     )
     expect(bool(ctx.recent_commits), "no git commits for the DAG file")
+
+    # Redaction: planted secrets must be gone; elsewhere nothing but author names may go.
+    saved = ctx.model_dump_json()
+    leaks = [s for s in expected.get("must_not_leak", []) if s in saved]
+    expect(not leaks, f"secrets leaked into the saved context: {len(leaks)}")
+    kinds = set(ctx.summary())
+    if expected.get("must_not_leak"):
+        expect(bool(kinds - {"person"}), "planted secrets but nothing redacted")
+    else:
+        expect(kinds <= {"person"}, f"unexpected redactions (false positives?): {ctx.summary()}")
     return problems
 
 
@@ -172,16 +184,16 @@ def main() -> int:
         git_dags_subdir="dev/dags",
     )
 
-    def collected() -> dict[str, FailureContext] | None:
+    def collected() -> dict[str, RedactedContext] | None:
         worker.run(settings, once=True)
-        found: dict[str, FailureContext] = {}
+        found: dict[str, RedactedContext] = {}
         for path in settings.contexts_dir.glob("*.json"):
-            ctx = FailureContext.model_validate_json(path.read_text())
+            ctx = RedactedContext.model_validate_json(path.read_text())
             if runs.get(ctx.job.dag_id) == ctx.job.run_id:
                 found[ctx.job.dag_id] = ctx
         return found if len(found) == len(runs) else None
 
-    contexts: dict[str, FailureContext] = wait_for(
+    contexts: dict[str, RedactedContext] = wait_for(
         "listener -> spool -> worker to collect every failure", collected, 120
     )
 
@@ -190,7 +202,8 @@ def main() -> int:
         problems = check_context(contexts[dag_id], expected, api, args.airflow)
         exc = contexts[dag_id].exception
         status = "ok  " if not problems else "FAIL"
-        log(f"{status} {dag_id:27} {exc.type if exc else None}")
+        summary = contexts[dag_id].summary()
+        log(f"{status} {dag_id:27} {exc.type if exc else None:26} redacted {summary}")
         for problem in problems:
             log(f"       - {problem}")
         failures += bool(problems)

@@ -1,5 +1,8 @@
 """The Doctor worker: a separate process that takes failure jobs off the queue and runs
-the pipeline. Step 1 runs collect only and saves each FailureContext as JSON."""
+the pipeline. So far: collect -> redact, then save the RedactedContext as JSON.
+
+Only redacted data is ever written to disk; the raw context lives in memory only.
+"""
 
 from __future__ import annotations
 
@@ -10,8 +13,9 @@ from pathlib import Path
 
 from airflow_doctor.collector import AirflowAPIError, AirflowClient, collect
 from airflow_doctor.config import Settings
-from airflow_doctor.models import FailureContext, FailureJob
+from airflow_doctor.models import FailureJob, RedactedContext
 from airflow_doctor.queue import JobQueue, QueuedJob
+from airflow_doctor.redactor import Redactor
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +36,7 @@ def context_filename(job: FailureJob) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", "__".join(parts)) + ".json"
 
 
-def save_context(ctx: FailureContext, out_dir: Path) -> Path:
+def save_context(ctx: RedactedContext, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / context_filename(ctx.job)
     path.write_text(ctx.model_dump_json(indent=2))
@@ -51,8 +55,11 @@ def process(qjob: QueuedJob, client: AirflowClient, settings: Settings) -> Path:
             "failed_at": qjob.failed_at,
         }
     )
-    ctx = collect(job, client, settings)
-    return save_context(ctx, settings.contexts_dir)
+    raw = collect(job, client, settings)
+    redacted = Redactor.from_settings(settings).redact(raw)
+    if redacted.redactions:
+        log.info("job %s: redacted %s", qjob.id, redacted.summary())
+    return save_context(redacted, settings.contexts_dir)
 
 
 def run(settings: Settings, *, once: bool = False, poll_interval_s: float = 2.0) -> int:

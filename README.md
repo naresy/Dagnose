@@ -12,7 +12,7 @@ When an Airflow task fails, engineers lose hours digging through logs, DAG code 
 
 1. **Trigger:** an Airflow plugin listener (`on_task_instance_failed`) writes a tiny job file (`dag_id`, `run_id`, `task_id`, `try_number`) into a spool folder with an atomic rename, and returns. No locks, so many task processes can fail at once safely, even over Docker bind mounts or NFS. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Doctor.
 2. **Collect:** a separate `airflow-doctor worker` process moves spool files into its own SQLite queue (only the worker touches it), then reads everything through the Airflow REST API (`/api/v2` on 3.x, `/api/v1` on 2.x). It gathers the log tail, the exception and stack trace, the DAG source, task params, the last N runs, and recent git commits that touched the DAG.
-3. **Redact:** it strips secrets, connection strings, emails and tokens before anything reaches a model.
+3. **Redact:** it replaces secrets with placeholders like `[REDACTED:password#1]` before anything reaches a model or disk: passwords in connection strings, `password=`/`token=`/`api_key=` values, known token formats (AWS, GitHub, Slack, Stripe, Google, OpenAI, Anthropic, JWT, private keys), emails, unlabelled high-entropy keys, sensitive task params and git author names. The same value always gets the same placeholder, so the model can still see that one secret appears in two places. Redaction is one-way: originals are never stored.
 4. **Recall:** it searches local incident memory for similar past failures, using an error fingerprint plus embeddings.
 5. **Diagnose:** an LLM with read-only tools (`get_log`, `get_dag_source`, `get_run_history`, `get_table_schema`, `search_past_incidents`) returns structured JSON with the summary, root cause, evidence lines, confidence and fix.
 6. **Fix:** if a code fix applies, it opens a pull request through the GitHub or GitLab API. It never touches production.
@@ -40,7 +40,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 | `queue` | Lock-free spool (listener side) + SQLite job queue (worker side) |
 | `worker` | Separate process that runs the pipeline for each job |
 | `collector` | REST API client (v2 / v1), log and metadata readers, git history |
-| `redactor` | Regex and entropy-based secret scrubbing |
+| `redactor` | Secret scrubbing: token formats, credential URLs, sensitive keys, emails, entropy, people |
 | `memory` | SQLite + sqlite-vec incident store, error fingerprints, embeddings |
 | `agent` | LLM loop with tool calling, through LiteLLM |
 | `fixer` | Branch and PR creation (GitHub / GitLab) |
@@ -51,7 +51,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 
 - **Core:** Python 3.10+, `uv`, Apache Airflow 2.x/3.x plugin and listener API
 - **LLM:** LiteLLM (OpenAI, Anthropic, or local through Ollama), Pydantic for structured output
-- **Security:** `detect-secrets` plus custom regex
+- **Security:** own redaction detectors (known token formats, credential URLs, sensitive keys, emails, entropy), tuned to keep diagnostic evidence such as hosts, ids and class names
 - **Memory:** SQLite with `sqlite-vec`, `fastembed` for local embeddings
 - **Integrations:** PyGithub, python-gitlab, Slack SDK, SMTP
 - **CLI:** Typer
@@ -79,7 +79,7 @@ cd dev && docker compose up -d            # local Airflow 3.3 at http://localhos
 
 The dev stack mounts `src/` into Airflow and loads the listener from `dev/plugins/`. Failed tasks land in `dev/doctor-data/spool/`.
 
-`dev/dags/broken/` holds deliberately broken DAGs (code bug, missing table, timeout, bad connection, missing dependency). Trigger them from the UI or REST API to produce real failures, then:
+`dev/dags/broken/` holds deliberately broken DAGs (code bug, missing table, timeout, bad connection, missing dependency, and one that leaks fake credentials to test redaction). Trigger them from the UI or REST API to produce real failures, then:
 
 ```bash
 export AIRFLOW_DOCTOR_HOME=dev/doctor-data
@@ -88,7 +88,8 @@ export AIRFLOW_DOCTOR_GIT_REPO_PATH=$PWD AIRFLOW_DOCTOR_GIT_DAGS_SUBDIR=dev/dags
 
 uv run airflow-doctor worker --once       # spool -> queue -> collect -> dev/doctor-data/contexts/*.json
 uv run airflow-doctor queue               # job counts by status
-uv run airflow-doctor collect <dag_id> <run_id> <task_id>   # one failure, JSON to stdout
+uv run airflow-doctor collect <dag_id> <run_id> <task_id>   # one failure, redacted JSON to stdout (--raw: unredacted)
+uv run airflow-doctor redact <context.json>                 # redact a saved context, summary on stderr
 uv run python dev/record_fixtures.py      # refresh recorded API traffic + contexts in tests/fixtures/
 ```
 
@@ -120,15 +121,17 @@ Run the e2e check locally the same way CI does: start a stack, then `uv run pyth
 
 We build one piece at a time, and each piece is tested before the next one starts.
 
-**Status:** step 1 done, plus CI/CD. **Next: step 2, the redactor.**
+**Status:** steps 1 and 2 done, plus CI/CD. **Next: step 3, the diagnosis agent.**
 
 - [x] **0. Foundation:** project scaffold, local Airflow 3 and 2 in Docker, 5 broken DAGs, CI/CD pipeline (lint, types, tests on Python 3.10–3.13, e2e on real Airflow 2 and 3, build, release to PyPI)
 - [x] **1. Collector:** capture real failure data from a local Airflow (Docker Compose + broken DAGs)
   - listener plugin, lock-free spool, worker queue with retry backoff
   - REST API client for Airflow 3 (`/api/v2`) and Airflow 2 (`/api/v1`), verified on 3.3.2 and 2.11.1
   - collects exception and failing line, log tail, DAG source, task params, run history, git commits
-- [ ] **2. Redactor:** secret scrubbing with tests ← **next**
-- [ ] **3. Diagnosis agent:** LLM + read-only tools, structured JSON output
+- [x] **2. Redactor:** secret scrubbing with tests
+  - placeholders keep evidence (hosts, users, ids, failing lines); the worker writes only redacted data
+  - checked on real Airflow 2 and 3: planted fake secrets never reach the saved context, and clean failures lose nothing but author names
+- [ ] **3. Diagnosis agent:** LLM + read-only tools, structured JSON output ← **next**
 - [ ] **4. Slack notifier:** diagnosis card with evidence
 - [ ] **5. Incident memory:** SQLite + embeddings, "seen this before"
 - [ ] **6. Fix PRs:** GitHub / GitLab pull requests

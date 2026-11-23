@@ -1,7 +1,7 @@
 {
   "job": {
     "dag_id": "broken_missing_table",
-    "run_id": "manual__2026-11-23T02:24:40.517756+00:00",
+    "run_id": "manual__2026-11-23T13:41:52.266884+00:00",
     "task_id": "daily_revenue",
     "try_number": 1,
     "map_index": -1,
@@ -12,7 +12,7 @@
   "task_state": "failed",
   "operator": "_PythonDecoratedOperator",
   "hostname": "9a8bbeb22b0e",
-  "duration_s": 0.141344,
+  "duration_s": 0.167181,
   "task_params": {
     "templates_dict": null,
     "op_args": [],
@@ -92,28 +92,28 @@
   "log_tail": [
     {
       "n": 1,
-      "timestamp": "2026-11-23T02:24:41.418725Z",
+      "timestamp": "2026-11-23T13:41:53.371510Z",
       "level": "info",
       "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
       "message": "DAG bundles loaded: dags-folder"
     },
     {
       "n": 2,
-      "timestamp": "2026-11-23T02:24:41.419385Z",
+      "timestamp": "2026-11-23T13:41:53.372112Z",
       "level": "info",
       "logger": "airflow.dag_processing.dagbag.BundleDagBag",
       "message": "Filling up the DagBag from /opt/airflow/dags/broken/missing_table.py"
     },
     {
       "n": 3,
-      "timestamp": "2026-11-23T02:24:41.453826Z",
+      "timestamp": "2026-11-23T13:41:53.404678Z",
       "level": "info",
       "logger": "task",
       "message": "Worker startup parse complete"
     },
     {
       "n": 4,
-      "timestamp": "2026-11-23T02:24:41.489076Z",
+      "timestamp": "2026-11-23T13:41:53.467530Z",
       "level": "error",
       "logger": "task",
       "message": "Task failed with exception"
@@ -124,13 +124,40 @@
   "dag_source": "\"\"\"Broken DAG: upstream data. Query against a table that was never created.\"\"\"\n\nimport sqlite3\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"broken_missing_table\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"upstream_data\"],\n    default_args={\"retries\": 0},\n)\ndef broken_missing_table():\n    @task\n    def daily_revenue() -> int:\n        conn = sqlite3.connect(\"/tmp/warehouse.db\")\n        conn.execute(\"CREATE TABLE IF NOT EXISTS customers (id INTEGER, name TEXT)\")\n        # The orders table is loaded by another pipeline that has not run.\n        row = conn.execute(\n            \"SELECT SUM(amount) FROM orders WHERE order_date = date('now')\"\n        ).fetchone()\n        return row[0] or 0\n\n    daily_revenue()\n\n\nbroken_missing_table()\n",
   "run_history": [
     {
+      "run_id": "manual__2026-11-23T13:41:52.266884+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T13:41:53.311657Z",
+      "end_date": "2026-11-23T13:41:53.478838Z",
+      "duration_s": 0.167181,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-23T13:39:18.909290+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T13:39:20.056864Z",
+      "end_date": "2026-11-23T13:39:20.198503Z",
+      "duration_s": 0.141639,
+      "is_current": false
+    },
+    {
+      "run_id": "manual__2026-11-23T02:32:47.480526+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T02:32:48.626246Z",
+      "end_date": "2026-11-23T02:32:48.715686Z",
+      "duration_s": 0.08944,
+      "is_current": false
+    },
+    {
       "run_id": "manual__2026-11-23T02:24:40.517756+00:00",
       "state": "failed",
       "try_number": 1,
       "start_date": "2026-11-23T02:24:41.354594Z",
       "end_date": "2026-11-23T02:24:41.495938Z",
       "duration_s": 0.141344,
-      "is_current": true
+      "is_current": false
     },
     {
       "run_id": "manual__2026-11-22T18:18:32.329004+00:00",
@@ -162,6 +189,14 @@
   ],
   "recent_commits": [
     {
+      "sha": "be2fbfbb87d3ed8a3bd112bc7c07e8c3391b9731",
+      "author": "naresy",
+      "date": "2026-11-22T21:26:09-05:00",
+      "subject": "Finish step 1: verify on real Airflow 2.11, retry backoff, dedupe fix",
+      "diff": "diff --git a/dev/dags/broken/missing_table.py b/dev/dags/broken/missing_table.py\nindex 9dcb25c..6427b45 100644\n--- a/dev/dags/broken/missing_table.py\n+++ b/dev/dags/broken/missing_table.py\n@@ -3,7 +3,10 @@\n import sqlite3\n from datetime import datetime\n \n-from airflow.sdk import dag, task\n+try:\n+    from airflow.sdk import dag, task\n+except ImportError:  # Airflow 2.x\n+    from airflow.decorators import dag, task\n \n \n @dag(\n",
+      "diff_truncated": false
+    },
+    {
       "sha": "76157f23caca4bf850813afb031bdf6e7912fd9b",
       "author": "naresy",
       "date": "2026-11-22T10:38:08-05:00",
@@ -171,5 +206,5 @@
     }
   ],
   "collection_errors": [],
-  "collected_at": "2026-11-23T02:25:18.460046Z"
+  "collected_at": "2026-11-23T13:42:28.816093Z"
 }
