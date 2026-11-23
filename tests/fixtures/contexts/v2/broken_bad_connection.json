@@ -1,7 +1,7 @@
 {
   "job": {
     "dag_id": "broken_bad_connection",
-    "run_id": "manual__2026-11-23T13:39:18.931948+00:00",
+    "run_id": "manual__2026-11-23T13:41:52.284414+00:00",
     "task_id": "push_to_crm",
     "try_number": 1,
     "map_index": -1,
@@ -12,7 +12,7 @@
   "task_state": "failed",
   "operator": "_PythonDecoratedOperator",
   "hostname": "9a8bbeb22b0e",
-  "duration_s": 0.16779,
+  "duration_s": 0.191435,
   "task_params": {
     "templates_dict": null,
     "op_args": [],
@@ -102,28 +102,28 @@
   "log_tail": [
     {
       "n": 1,
-      "timestamp": "2026-11-23T13:39:20.132438Z",
+      "timestamp": "2026-11-23T13:41:53.393493Z",
       "level": "info",
       "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
       "message": "DAG bundles loaded: dags-folder"
     },
     {
       "n": 2,
-      "timestamp": "2026-11-23T13:39:20.133063Z",
+      "timestamp": "2026-11-23T13:41:53.394127Z",
       "level": "info",
       "logger": "airflow.dag_processing.dagbag.BundleDagBag",
       "message": "Filling up the DagBag from /opt/airflow/dags/broken/bad_connection.py"
     },
     {
       "n": 3,
-      "timestamp": "2026-11-23T13:39:20.157875Z",
+      "timestamp": "2026-11-23T13:41:53.421036Z",
       "level": "info",
       "logger": "task",
       "message": "Worker startup parse complete"
     },
     {
       "n": 4,
-      "timestamp": "2026-11-23T13:39:20.213173Z",
+      "timestamp": "2026-11-23T13:41:53.494811Z",
       "level": "error",
       "logger": "task",
       "message": "Task failed with exception"
@@ -134,13 +134,22 @@
   "dag_source": "\"\"\"Broken DAG: config. Task uses a connection id that does not exist.\"\"\"\n\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\ntry:\n    from airflow.sdk import Connection\n\n    get_connection = Connection.get\nexcept ImportError:  # Airflow 2.x\n    from airflow.hooks.base import BaseHook\n\n    get_connection = BaseHook.get_connection\n\n\n@dag(\n    dag_id=\"broken_bad_connection\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"config\"],\n    default_args={\"retries\": 0},\n)\ndef broken_bad_connection():\n    @task\n    def push_to_crm() -> None:\n        # Typo: the real connection is \"salesforce_prod\".\n        conn = get_connection(\"salesforce_prd\")\n        print(f\"Connecting to {conn.host}\")\n\n    push_to_crm()\n\n\nbroken_bad_connection()\n",
   "run_history": [
     {
+      "run_id": "manual__2026-11-23T13:41:52.284414+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T13:41:53.311612Z",
+      "end_date": "2026-11-23T13:41:53.503047Z",
+      "duration_s": 0.191435,
+      "is_current": true
+    },
+    {
       "run_id": "manual__2026-11-23T13:39:18.931948+00:00",
       "state": "failed",
       "try_number": 1,
       "start_date": "2026-11-23T13:39:20.054878Z",
       "end_date": "2026-11-23T13:39:20.222668Z",
       "duration_s": 0.16779,
-      "is_current": true
+      "is_current": false
     },
     {
       "run_id": "manual__2026-11-23T02:32:47.499787+00:00",
@@ -207,5 +216,5 @@
     }
   ],
   "collection_errors": [],
-  "collected_at": "2026-11-23T13:40:14.873958Z"
+  "collected_at": "2026-11-23T13:42:28.344766Z"
 }

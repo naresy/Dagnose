@@ -1,7 +1,7 @@
 {
   "job": {
     "dag_id": "broken_missing_dependency",
-    "run_id": "manual__2026-11-23T13:39:32.320673+00:00",
+    "run_id": "manual__2026-11-23T13:42:05.746798+00:00",
     "task_id": "score_customers",
     "try_number": 1,
     "map_index": -1,
@@ -12,7 +12,7 @@
   "task_state": "failed",
   "operator": "_PythonDecoratedOperator",
   "hostname": "b67505efb6ac",
-  "duration_s": 0.159235,
+  "duration_s": 0.110553,
   "task_params": {
     "op_args": [],
     "op_kwargs": {},
@@ -137,77 +137,77 @@
   "log_tail": [
     {
       "n": 1,
-      "timestamp": "2026-11-23T13:39:32.711+0000",
+      "timestamp": "2026-11-23T13:42:06.475+0000",
       "level": "info",
       "logger": "taskinstance.py:2631",
-      "message": "Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: broken_missing_dependency.score_customers manual__2026-11-23T13:39:32.320673+00:00 [queued]>"
+      "message": "Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: broken_missing_dependency.score_customers manual__2026-11-23T13:42:05.746798+00:00 [queued]>"
     },
     {
       "n": 2,
-      "timestamp": "2026-11-23T13:39:32.714+0000",
+      "timestamp": "2026-11-23T13:42:06.483+0000",
       "level": "info",
       "logger": "taskinstance.py:2631",
-      "message": "Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: broken_missing_dependency.score_customers manual__2026-11-23T13:39:32.320673+00:00 [queued]>"
+      "message": "Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: broken_missing_dependency.score_customers manual__2026-11-23T13:42:05.746798+00:00 [queued]>"
     },
     {
       "n": 3,
-      "timestamp": "2026-11-23T13:39:32.715+0000",
+      "timestamp": "2026-11-23T13:42:06.483+0000",
       "level": "info",
       "logger": "taskinstance.py:2884",
       "message": "Starting attempt 1 of 1"
     },
     {
       "n": 4,
-      "timestamp": "2026-11-23T13:39:32.720+0000",
+      "timestamp": "2026-11-23T13:42:06.489+0000",
       "level": "info",
       "logger": "taskinstance.py:2907",
-      "message": "Executing <Task(_PythonDecoratedOperator): score_customers> on 2026-11-23 13:39:32.320673+00:00"
+      "message": "Executing <Task(_PythonDecoratedOperator): score_customers> on 2026-11-23 13:42:05.746798+00:00"
     },
     {
       "n": 5,
-      "timestamp": "2026-11-23T13:39:32.724+0000",
+      "timestamp": "2026-11-23T13:42:06.493+0000",
       "level": "warning",
       "logger": "logging_mixin.py:190",
-      "message": "/home/***/.local/lib/python3.12/site-packages/***/task/task_runner/standard_task_runner.py:70 DeprecationWarning: This process (pid=3718) is multi-threaded, use of fork() may lead to deadlocks in the child."
+      "message": "/home/***/.local/lib/python3.12/site-packages/***/task/task_runner/standard_task_runner.py:70 DeprecationWarning: This process (pid=3924) is multi-threaded, use of fork() may lead to deadlocks in the child."
     },
     {
       "n": 6,
-      "timestamp": "2026-11-23T13:39:32.724+0000",
+      "timestamp": "2026-11-23T13:42:06.493+0000",
       "level": "info",
       "logger": "standard_task_runner.py:104",
-      "message": "Running: ['***', 'tasks', 'run', 'broken_missing_dependency', 'score_customers', 'manual__2026-11-23T13:39:32.320673+00:00', '--job-id', '23', '--raw', '--subdir', 'DAGS_FOLDER/broken/missing_dependency.py', '--cfg-path', '/tmp/tmpgxrcqwpx']"
+      "message": "Running: ['***', 'tasks', 'run', 'broken_missing_dependency', 'score_customers', 'manual__2026-11-23T13:42:05.746798+00:00', '--job-id', '33', '--raw', '--subdir', 'DAGS_FOLDER/broken/missing_dependency.py', '--cfg-path', '/tmp/tmpmoiq90b3']"
     },
     {
       "n": 7,
-      "timestamp": "2026-11-23T13:39:32.727+0000",
+      "timestamp": "2026-11-23T13:42:06.494+0000",
       "level": "info",
       "logger": "standard_task_runner.py:72",
-      "message": "Started process 3723 to run task"
+      "message": "Started process 3937 to run task"
     },
     {
       "n": 8,
-      "timestamp": "2026-11-23T13:39:32.728+0000",
+      "timestamp": "2026-11-23T13:42:06.496+0000",
       "level": "info",
       "logger": "standard_task_runner.py:105",
-      "message": "Job 23: Subtask score_customers"
+      "message": "Job 33: Subtask score_customers"
     },
     {
       "n": 9,
-      "timestamp": "2026-11-23T13:39:32.784+0000",
+      "timestamp": "2026-11-23T13:42:06.529+0000",
       "level": "info",
       "logger": "task_command.py:467",
-      "message": "Running <TaskInstance: broken_missing_dependency.score_customers manual__2026-11-23T13:39:32.320673+00:00 [running]> on host b67505efb6ac"
+      "message": "Running <TaskInstance: broken_missing_dependency.score_customers manual__2026-11-23T13:42:05.746798+00:00 [running]> on host b67505efb6ac"
     },
     {
       "n": 10,
-      "timestamp": "2026-11-23T13:39:32.850+0000",
+      "timestamp": "2026-11-23T13:42:06.579+0000",
       "level": "info",
       "logger": "taskinstance.py:3157",
-      "message": "Exporting env vars: AIRFLOW_CTX_DAG_OWNER='***' AIRFLOW_CTX_DAG_ID='broken_missing_dependency' AIRFLOW_CTX_TASK_ID='score_customers' AIRFLOW_CTX_EXECUTION_DATE='2026-11-23T13:39:32.320673+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='manual__2026-11-23T13:39:32.320673+00:00'"
+      "message": "Exporting env vars: AIRFLOW_CTX_DAG_OWNER='***' AIRFLOW_CTX_DAG_ID='broken_missing_dependency' AIRFLOW_CTX_TASK_ID='score_customers' AIRFLOW_CTX_EXECUTION_DATE='2026-11-23T13:42:05.746798+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='manual__2026-11-23T13:42:05.746798+00:00'"
     },
     {
       "n": 11,
-      "timestamp": "2026-11-23T13:39:32.857+0000",
+      "timestamp": "2026-11-23T13:42:06.581+0000",
       "level": "error",
       "logger": "taskinstance.py:3336",
       "message": "Task failed with exception"
@@ -438,17 +438,17 @@
     },
     {
       "n": 44,
-      "timestamp": "2026-11-23T13:39:32.872+0000",
+      "timestamp": "2026-11-23T13:42:06.590+0000",
       "level": "info",
       "logger": "taskinstance.py:1242",
-      "message": "Marking task as FAILED. dag_id=broken_missing_dependency, task_id=score_customers, run_id=manual__2026-11-23T13:39:32.320673+00:00, execution_date=20261123T133932, start_date=20261123T133932, end_date=20261123T133932"
+      "message": "Marking task as FAILED. dag_id=broken_missing_dependency, task_id=score_customers, run_id=manual__2026-11-23T13:42:05.746798+00:00, execution_date=20261123T134205, start_date=20261123T134206, end_date=20261123T134206"
     },
     {
       "n": 45,
-      "timestamp": "2026-11-23T13:39:32.892+0000",
+      "timestamp": "2026-11-23T13:42:06.604+0000",
       "level": "error",
       "logger": "standard_task_runner.py:124",
-      "message": "Failed to execute job 23 for task score_customers (No module named 'polars_ml_toolkit'; 3723)"
+      "message": "Failed to execute job 33 for task score_customers (No module named 'polars_ml_toolkit'; 3937)"
     },
     {
       "n": 46,
@@ -900,14 +900,14 @@
     },
     {
       "n": 110,
-      "timestamp": "2026-11-23T13:39:32.898+0000",
+      "timestamp": "2026-11-23T13:42:06.608+0000",
       "level": "info",
       "logger": "local_task_job_runner.py:266",
       "message": "Task exited with return code 1"
     },
     {
       "n": 111,
-      "timestamp": "2026-11-23T13:39:32.910+0000",
+      "timestamp": "2026-11-23T13:42:06.617+0000",
       "level": "info",
       "logger": "taskinstance.py:3924",
       "message": "0 downstream tasks scheduled from follow-on schedule check"
@@ -918,13 +918,22 @@
   "dag_source": "\"\"\"Broken DAG: dependency. Task imports a package not installed on the worker.\"\"\"\n\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"broken_missing_dependency\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"dependency\"],\n    default_args={\"retries\": 0},\n)\ndef broken_missing_dependency():\n    @task\n    def score_customers() -> None:\n        import polars_ml_toolkit  # not in the worker image\n\n        polars_ml_toolkit.score(\"customers.parquet\")\n\n    score_customers()\n\n\nbroken_missing_dependency()\n",
   "run_history": [
     {
+      "run_id": "manual__2026-11-23T13:42:05.746798+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T13:42:06.478554Z",
+      "end_date": "2026-11-23T13:42:06.589107Z",
+      "duration_s": 0.110553,
+      "is_current": true
+    },
+    {
       "run_id": "manual__2026-11-23T13:39:32.320673+00:00",
       "state": "failed",
       "try_number": 1,
       "start_date": "2026-11-23T13:39:32.711432Z",
       "end_date": "2026-11-23T13:39:32.870667Z",
       "duration_s": 0.159235,
-      "is_current": true
+      "is_current": false
     },
     {
       "run_id": "manual__2026-11-23T02:33:01.168487+00:00",
@@ -973,5 +982,5 @@
     }
   ],
   "collection_errors": [],
-  "collected_at": "2026-11-23T13:40:17.628618Z"
+  "collected_at": "2026-11-23T13:42:31.071294Z"
 }
