@@ -12,7 +12,7 @@ import pytest
 from airflow_doctor import worker
 from airflow_doctor.collector import AirflowAPIError, AirflowClient
 from airflow_doctor.queue import JobQueue, write_spool_job
-from airflow_doctor.watcher import WATERMARK_KEY, poll_failures
+from airflow_doctor.watcher import FLOOR_KEY, WATERMARK_KEY, poll_failures
 
 NOW = datetime(2026, 11, 23, 12, 0, tzinfo=timezone.utc)
 
@@ -77,6 +77,7 @@ def test_next_poll_starts_at_the_watermark_minus_overlap(make_settings: Any) -> 
     settings = make_settings(poll_overlap_s=600)
     queue = JobQueue(settings.queue_path)
     queue.set_state(WATERMARK_KEY, NOW.isoformat())
+    queue.set_state(FLOOR_KEY, (NOW - timedelta(hours=5)).isoformat())
     fake = FakeAirflow([])
     with client(fake, make_settings) as c:
         poll_failures(c, queue, settings, now=NOW + timedelta(minutes=5))
@@ -150,3 +151,26 @@ def test_worker_watch_modes(
     processed = worker.run(settings, once=True)
     assert processed == (1 if spool_used else 0)
     assert bool(polled) is api_polled
+
+
+def test_overlap_never_reaches_behind_the_first_window(make_settings: Any) -> None:
+    """Regression (found by running the worker container): with a 1-minute lookback and a
+    10-minute overlap, the second poll went 10 minutes back and queued older failures."""
+    settings = make_settings(poll_lookback_minutes=1, poll_overlap_s=600)
+    queue = JobQueue(settings.queue_path)
+    fake = FakeAirflow([])
+    with client(fake, make_settings) as c:
+        poll_failures(c, queue, settings, now=NOW)
+        poll_failures(c, queue, settings, now=NOW + timedelta(seconds=5))
+        poll_failures(c, queue, settings, now=NOW + timedelta(minutes=30))
+    starts = [datetime.fromisoformat(b["end_date_gte"]) for b in fake.bodies]
+    assert starts[0] == NOW - timedelta(minutes=1)
+    assert starts[1] == NOW - timedelta(minutes=1)  # was NOW - 10 min: the bug
+    assert starts[2] == NOW - timedelta(minutes=1)  # watermark - overlap is still behind the floor
+
+    with client(fake, make_settings) as c:
+        poll_failures(c, queue, settings, now=NOW + timedelta(minutes=45))
+    # Once the window has moved past the floor, the normal overlap applies again.
+    assert datetime.fromisoformat(fake.bodies[3]["end_date_gte"]) == NOW + timedelta(
+        minutes=30
+    ) - timedelta(minutes=10)
