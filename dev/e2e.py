@@ -224,6 +224,7 @@ def main() -> int:
 
     slack = FakeSlack()
     settings = Settings(
+        _env_file=None,  # deterministic: never pick up a real webhook or key from .env
         airflow_url=str(target["url"]),
         airflow_username=USER,
         airflow_password=PASSWORD,

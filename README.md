@@ -71,6 +71,14 @@ export AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 airflow-doctor setup
 ```
 
+Settings can also go in a `.env` file in the directory you run `airflow-doctor` from (git-ignored; real environment variables win over it):
+
+```bash
+# .env
+AIRFLOW_DOCTOR_LLM_API_KEY=sk-ant-...
+AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+```
+
 ## Development
 
 ```bash

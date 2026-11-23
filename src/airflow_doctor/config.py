@@ -12,7 +12,11 @@ from airflow_doctor.queue import default_home
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="AIRFLOW_DOCTOR_", extra="ignore")
+    # Also reads AIRFLOW_DOCTOR_* from a .env file in the current directory (git-ignored).
+    # Real environment variables win over the file.
+    model_config = SettingsConfigDict(
+        env_prefix="AIRFLOW_DOCTOR_", env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     # Airflow REST API
     airflow_url: str = "http://localhost:8080"
