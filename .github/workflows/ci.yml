@@ -62,10 +62,10 @@ jobs:
         include:
           - airflow: "3"
             compose-dir: dev
-            home: dev/doctor-data
+            home: dev/dagnose-data
           - airflow: "2"
             compose-dir: dev/airflow2
-            home: dev/airflow2/doctor-data
+            home: dev/airflow2/dagnose-data
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
@@ -114,18 +114,18 @@ jobs:
           uv venv /tmp/clean
           uv pip install --python /tmp/clean dist/*.whl
           expected=$(uv run --no-project python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          installed=$(/tmp/clean/bin/airflow-doctor version)
+          installed=$(/tmp/clean/bin/dagnose version)
           echo "pyproject: $expected  installed: $installed"
           test "$expected" = "$installed"
-          /tmp/clean/bin/python -c "from importlib.metadata import entry_points; eps = entry_points(group='airflow.plugins'); assert any(ep.name == 'airflow_doctor' for ep in eps), 'Airflow plugin entry point missing'"
+          /tmp/clean/bin/python -c "from importlib.metadata import entry_points; eps = entry_points(group='airflow.plugins'); assert any(ep.name == 'dagnose' for ep in eps), 'Airflow plugin entry point missing'"
       - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
       - name: Build the worker image and smoke test it
         run: |
-          docker build -t airflow-doctor:ci .
+          docker build -t dagnose:ci .
           expected=$(uv run --no-project python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          test "$(docker run --rm airflow-doctor:ci version)" = "$expected"
-          test "$(docker run --rm --entrypoint id airflow-doctor:ci -un)" = "doctor"
-          docker run --rm airflow-doctor:ci --help > /dev/null
+          test "$(docker run --rm dagnose:ci version)" = "$expected"
+          test "$(docker run --rm --entrypoint id dagnose:ci -un)" = "dagnose"
+          docker run --rm dagnose:ci --help > /dev/null

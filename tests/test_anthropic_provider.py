@@ -10,9 +10,9 @@ import anthropic
 import httpx2
 import pytest
 
-from airflow_doctor.agent.anthropic_provider import FALLBACK_BETA, AnthropicProvider
-from airflow_doctor.agent.prompt import DIAGNOSIS_SCHEMA
-from airflow_doctor.agent.provider import ProviderConfigError, ProviderError, ToolResult, ToolSpec
+from dagnose.agent.anthropic_provider import FALLBACK_BETA, AnthropicProvider
+from dagnose.agent.prompt import DIAGNOSIS_SCHEMA
+from dagnose.agent.provider import ProviderConfigError, ProviderError, ToolResult, ToolSpec
 
 TOOL = ToolSpec(
     name="list_run_tasks",

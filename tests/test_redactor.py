@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from airflow_doctor.models import Commit, ExceptionInfo, FailureContext, FailureJob, LogLine
-from airflow_doctor.redactor import Redactor, redact
-from airflow_doctor.redactor.detectors import looks_random
+from dagnose.models import Commit, ExceptionInfo, FailureContext, FailureJob, LogLine
+from dagnose.redactor import Redactor, redact
+from dagnose.redactor.detectors import looks_random
 from tests.conftest import FIXTURES
 
 R = "aB3xK9mQ2pL7vT4wZ8nY6cD1"  # random-looking filler for fake tokens

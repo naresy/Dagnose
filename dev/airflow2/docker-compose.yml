@@ -1,11 +1,11 @@
-# Local Airflow 2.x, to check Airflow Doctor keeps working on 2.x (REST API v1).
+# Local Airflow 2.x, to check Dagnose keeps working on 2.x (REST API v1).
 # Runs next to the Airflow 3 stack in dev/: same broken DAGs and plugin, own database.
 # Not for production.
 #
 #   cd dev/airflow2 && docker compose up -d
 #   UI / REST API: http://localhost:8081  (airflow / airflow, basic auth)
 
-name: airflow-doctor-dev-airflow2
+name: dagnose-dev-airflow2
 
 x-airflow-common: &airflow-common
   image: ${AIRFLOW2_IMAGE_NAME:-apache/airflow:2.11.1}
@@ -18,15 +18,15 @@ x-airflow-common: &airflow-common
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
     AIRFLOW__WEBSERVER__SECRET_KEY: dev_only_secret_change_me
     AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "30"
-    # Airflow Doctor (dev): load the package from the repo instead of pip installing it.
-    PYTHONPATH: /opt/airflow/doctor-src
-    AIRFLOW_DOCTOR_HOME: /opt/airflow/doctor-data
+    # Dagnose (dev): load the package from the repo instead of pip installing it.
+    PYTHONPATH: /opt/airflow/dagnose-src
+    DAGNOSE_HOME: /opt/airflow/dagnose-data
   volumes:
     - ../dags:/opt/airflow/dags
     - ../plugins:/opt/airflow/plugins
-    - ../../src:/opt/airflow/doctor-src:ro
+    - ../../src:/opt/airflow/dagnose-src:ro
     - ./logs:/opt/airflow/logs
-    - ./doctor-data:/opt/airflow/doctor-data
+    - ./dagnose-data:/opt/airflow/dagnose-data
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on: &airflow-common-depends-on
     postgres:
@@ -53,9 +53,9 @@ services:
     command:
       - -c
       - |
-        mkdir -p /opt/airflow/logs /opt/airflow/doctor-data
+        mkdir -p /opt/airflow/logs /opt/airflow/dagnose-data
         /entrypoint airflow version
-        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/logs /opt/airflow/doctor-data
+        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/logs /opt/airflow/dagnose-data
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: "true"

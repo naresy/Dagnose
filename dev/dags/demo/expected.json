@@ -1,5 +1,5 @@
 {
-  "_comment": "What Airflow Doctor must find for each demo DAG, on Airflow 2 and 3. Used by tests/, dev/e2e.py and dev/diagnose_fixtures.py. category: diagnosis categories that count as correct. must_not_leak: fake secrets that must never appear in a redacted context or notification. Update when a demo DAG changes; see README.md in this folder.",
+  "_comment": "What Dagnose must find for each demo DAG, on Airflow 2 and 3. Used by tests/, dev/e2e.py and dev/diagnose_fixtures.py. category: diagnosis categories that count as correct. must_not_leak: fake secrets that must never appear in a redacted context or notification. Update when a demo DAG changes; see README.md in this folder.",
   "demo_orders_tax": {"task_id": "compute_tax", "exception": "KeyError", "file": "orders_tax.py", "line": 26, "category": ["code_bug"]},
   "demo_daily_revenue": {"task_id": "daily_revenue", "exception": "OperationalError", "file": "daily_revenue.py", "line": 25, "category": ["upstream_data"]},
   "demo_partner_export": {"task_id": "export_partner_data", "exception": "AirflowTaskTimeout", "file": "partner_export.py", "line": 25, "category": ["timeout"]},

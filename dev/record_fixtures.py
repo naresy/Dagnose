@@ -5,7 +5,7 @@ saves every HTTP exchange to tests/fixtures/api/<api>/<dag_id>.json, and saves t
 resulting FailureContext to tests/fixtures/contexts/<api>/<dag_id>.json.
 
     cd dev && docker compose up -d      # then trigger the broken DAGs once
-    AIRFLOW_DOCTOR_AIRFLOW_USERNAME=airflow AIRFLOW_DOCTOR_AIRFLOW_PASSWORD=airflow \
+    DAGNOSE_AIRFLOW_USERNAME=airflow DAGNOSE_AIRFLOW_PASSWORD=airflow \
         uv run python dev/record_fixtures.py
 """
 
@@ -17,9 +17,9 @@ from typing import Any
 
 import httpx
 
-from airflow_doctor.collector import AirflowClient, collect
-from airflow_doctor.config import Settings
-from airflow_doctor.models import FailureJob
+from dagnose.collector import AirflowClient, collect
+from dagnose.config import Settings
+from dagnose.models import FailureJob
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures"

@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from airflow_doctor.collector import AirflowClient, collect
-from airflow_doctor.models import FailureJob
+from dagnose.collector import AirflowClient, collect
+from dagnose.models import FailureJob
 from tests.conftest import FIXTURES, ReplayTransport, load_recording, recordings
 
 # What a correct collection must find for each broken DAG, on Airflow 2 and 3 alike:
@@ -129,8 +129,8 @@ def test_try_number_defaults_to_latest(make_settings: Any) -> None:
 def test_log_airflow_could_not_serve_is_reported(make_settings: Any) -> None:
     """Airflow returns a warning instead of the log when its components do not share a
     secret key. That must show up as a collection error, not as an empty log."""
-    from airflow_doctor.notifier import build_card
-    from airflow_doctor.redactor import Redactor
+    from dagnose.notifier import build_card
+    from dagnose.redactor import Redactor
 
     rec = load_recording(FIXTURES / "api" / "v2" / "demo_orders_tax.json")
     unavailable = json.dumps(

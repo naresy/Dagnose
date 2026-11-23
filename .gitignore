@@ -12,8 +12,8 @@ build/
 dev/logs/
 dev/config/
 *.db
-dev/doctor-data/
+dev/dagnose-data/
 dev/airflow2/logs/
-dev/airflow2/doctor-data/
+dev/airflow2/dagnose-data/
 .coverage
 coverage.xml

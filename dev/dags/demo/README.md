@@ -1,6 +1,6 @@
 # Demo DAGs (deliberately broken)
 
-These DAGs fail on purpose, so Airflow Doctor has real failures to collect, redact and
+These DAGs fail on purpose, so Dagnose has real failures to collect, redact and
 diagnose. They are written like ordinary pipelines: names, comments, tags and
 docstrings say nothing about what is wrong, because the model reads the DAG source
 and must not be handed the answer.

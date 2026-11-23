@@ -13,9 +13,9 @@ from typing import Any
 import httpx
 import pytest
 
-from airflow_doctor.collector import AirflowAPIError, AirflowClient
-from airflow_doctor.collector.git import recent_commits
-from airflow_doctor.models import FailureJob
+from dagnose.collector import AirflowAPIError, AirflowClient
+from dagnose.collector.git import recent_commits
+from dagnose.models import FailureJob
 
 # ---- listener ---------------------------------------------------------------------
 
@@ -30,10 +30,10 @@ def listener(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
     monkeypatch.setitem(sys.modules, "airflow", airflow)
     monkeypatch.setitem(sys.modules, "airflow.listeners", listeners)
     monkeypatch.setitem(sys.modules, "airflow.plugins_manager", plugins_manager)
-    monkeypatch.setenv("AIRFLOW_DOCTOR_HOME", str(tmp_path))
-    for name in ("airflow_doctor.plugin", "airflow_doctor.plugin.listener"):
+    monkeypatch.setenv("DAGNOSE_HOME", str(tmp_path))
+    for name in ("dagnose.plugin", "dagnose.plugin.listener"):
         monkeypatch.delitem(sys.modules, name, raising=False)
-    return importlib.import_module("airflow_doctor.plugin.listener")
+    return importlib.import_module("dagnose.plugin.listener")
 
 
 def test_listener_spools_failed_task(listener: Any, tmp_path: Path) -> None:

@@ -4,7 +4,7 @@ import json
 import multiprocessing
 from pathlib import Path
 
-from airflow_doctor.queue import JobQueue, write_spool_job
+from dagnose.queue import JobQueue, write_spool_job
 
 
 def _job(n: int = 1, **extra: object) -> dict[str, object]:

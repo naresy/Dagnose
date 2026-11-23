@@ -11,18 +11,18 @@ from typing import Any
 import httpx
 import pytest
 
-from airflow_doctor.agent import (
+from dagnose.agent import (
     DiagnosisError,
     ProviderConfigError,
     ToolBox,
     diagnose,
     make_provider,
 )
-from airflow_doctor.agent.diagnose import LAST_TURN_NOTE, cap_confidence, verify_evidence
-from airflow_doctor.agent.prompt import DIAGNOSIS_SCHEMA, SYSTEM_PROMPT, render_context
-from airflow_doctor.agent.provider import ToolCall, ToolResult, ToolSpec, Turn
-from airflow_doctor.collector import AirflowClient
-from airflow_doctor.models import (
+from dagnose.agent.diagnose import LAST_TURN_NOTE, cap_confidence, verify_evidence
+from dagnose.agent.prompt import DIAGNOSIS_SCHEMA, SYSTEM_PROMPT, render_context
+from dagnose.agent.provider import ToolCall, ToolResult, ToolSpec, Turn
+from dagnose.collector import AirflowClient
+from dagnose.models import (
     Diagnosis,
     Evidence,
     FailureContext,
@@ -32,7 +32,7 @@ from airflow_doctor.models import (
     RunSummary,
     Usage,
 )
-from airflow_doctor.redactor import Redactor
+from dagnose.redactor import Redactor
 from tests.conftest import FIXTURES
 
 LEAKY = FIXTURES / "contexts" / "v2" / "demo_crm_session_sync.json"

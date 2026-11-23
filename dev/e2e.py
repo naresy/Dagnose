@@ -22,9 +22,9 @@ from typing import Any
 
 import httpx
 
-from airflow_doctor import worker
-from airflow_doctor.config import Settings
-from airflow_doctor.models import RedactedContext
+from dagnose import worker
+from dagnose.config import Settings
+from dagnose.models import RedactedContext
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPECTED: dict[str, dict[str, Any]] = {
@@ -33,8 +33,8 @@ EXPECTED: dict[str, dict[str, Any]] = {
     if not k.startswith("_")
 }
 TARGETS = {
-    "3": {"url": "http://localhost:8080", "api": "v2", "home": ROOT / "dev/doctor-data"},
-    "2": {"url": "http://localhost:8081", "api": "v1", "home": ROOT / "dev/airflow2/doctor-data"},
+    "3": {"url": "http://localhost:8080", "api": "v2", "home": ROOT / "dev/dagnose-data"},
+    "2": {"url": "http://localhost:8081", "api": "v1", "home": ROOT / "dev/airflow2/dagnose-data"},
 }
 USER = PASSWORD = "airflow"
 
@@ -103,7 +103,7 @@ def check_card(card: dict[str, Any] | None, expected: dict[str, Any]) -> list[st
 
 
 class Airflow:
-    """Minimal write-capable client for the test (Doctor's own client is read-only)."""
+    """Minimal write-capable client for the test (Dagnose's own client is read-only)."""
 
     def __init__(self, url: str, api: str) -> None:
         self.api = api
