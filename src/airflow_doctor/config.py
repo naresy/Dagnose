@@ -49,6 +49,17 @@ class Settings(BaseSettings):
     llm_max_turns: int = 6
     llm_fallbacks: bool = True  # server-side fallback model if Claude declines
 
+    # Notifications. Cards carry only redacted text and short quotes, never raw logs.
+    airflow_ui_url: str | None = None  # links in cards; default: airflow_url
+    slack_webhook_url: SecretStr | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    email_from: str | None = None
+    email_to: list[str] = Field(default_factory=list)  # JSON list in the env var
+
     home: Path = Field(default_factory=default_home)
 
     @property
@@ -66,3 +77,12 @@ class Settings(BaseSettings):
     @property
     def diagnoses_dir(self) -> Path:
         return self.home / "diagnoses"
+
+    @property
+    def outbox_dir(self) -> Path:
+        """Notifications that could not be delivered, kept for `airflow-doctor outbox`."""
+        return self.home / "outbox"
+
+    @property
+    def email_enabled(self) -> bool:
+        return bool(self.smtp_host and self.email_from and self.email_to)

@@ -137,3 +137,25 @@ def test_worker_retries_when_the_model_is_down(
     monkeypatch.setattr(worker, "make_provider", lambda s: Down())
     assert worker.run(settings, once=True) == 1
     assert JobQueue(settings.queue_path).counts() == {"pending": 1}  # retried later, not lost
+
+
+def test_worker_notifies_with_the_reason(
+    make_settings: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _leaky_job(
+        make_settings, monkeypatch, slack_webhook_url="https://hooks.example.test/x"
+    )
+    sent: list[dict[str, Any]] = []
+
+    def fake_notify(ctx: Any, run: Any, s: Any, **kwargs: Any) -> Any:
+        from airflow_doctor.notifier import NotifyReport
+
+        sent.append({"ctx": ctx, "run": run, **kwargs})
+        return NotifyReport(sent=["slack"])
+
+    monkeypatch.setattr(worker, "notify", fake_notify)
+    assert worker.run(settings, once=True) == 1
+    [call] = sent
+    assert call["run"] is None and call["reason"] == "diagnosis is turned off"
+    assert call["session"] is not None  # same redaction session as the context
+    assert "Sup3r-S3cret-Pw" not in call["ctx"].model_dump_json()
