@@ -120,14 +120,22 @@ Run the e2e check locally the same way CI does: start a stack, then `uv run pyth
 
 We build one piece at a time, and each piece is tested before the next one starts.
 
+**Status:** step 1 done, plus CI/CD. **Next: step 2, the redactor.**
+
+- [x] **0. Foundation:** project scaffold, local Airflow 3 and 2 in Docker, 5 broken DAGs, CI/CD pipeline (lint, types, tests on Python 3.10–3.13, e2e on real Airflow 2 and 3, build, release to PyPI)
 - [x] **1. Collector:** capture real failure data from a local Airflow (Docker Compose + broken DAGs)
-- [ ] **2. Redactor:** secret scrubbing with tests
+  - listener plugin, lock-free spool, worker queue with retry backoff
+  - REST API client for Airflow 3 (`/api/v2`) and Airflow 2 (`/api/v1`), verified on 3.3.2 and 2.11.1
+  - collects exception and failing line, log tail, DAG source, task params, run history, git commits
+- [ ] **2. Redactor:** secret scrubbing with tests ← **next**
 - [ ] **3. Diagnosis agent:** LLM + read-only tools, structured JSON output
 - [ ] **4. Slack notifier:** diagnosis card with evidence
 - [ ] **5. Incident memory:** SQLite + embeddings, "seen this before"
 - [ ] **6. Fix PRs:** GitHub / GitLab pull requests
 - [ ] **7. Eval set:** 30 failure cases, accuracy tracking
 - [ ] **8. Launch:** docs, 60-second demo video, Hacker News, r/dataengineering, Airflow Slack, LinkedIn
+
+Planned before launch: a mode that needs no plugin (the worker polls the Airflow API for failed tasks). It is needed for Kubernetes/Celery workers, managed Airflow (MWAA, Composer), and tasks killed for running out of memory.
 
 
 ## Principles
