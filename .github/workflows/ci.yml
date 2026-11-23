@@ -122,3 +122,10 @@ jobs:
         with:
           name: dist
           path: dist/
+      - name: Build the worker image and smoke test it
+        run: |
+          docker build -t airflow-doctor:ci .
+          expected=$(uv run --no-project python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          test "$(docker run --rm airflow-doctor:ci version)" = "$expected"
+          test "$(docker run --rm --entrypoint id airflow-doctor:ci -un)" = "doctor"
+          docker run --rm airflow-doctor:ci --help > /dev/null

@@ -69,6 +69,30 @@ class AnthropicProvider:
     ) -> AnthropicSession:
         return AnthropicSession(self, system, prompt, tools, output_schema)
 
+    def verify(self) -> int:
+        """Check the key and model without generating anything (token counting is free).
+        Returns the counted tokens; raises ProviderConfigError / ProviderError."""
+        try:
+            resp = self.client.messages.count_tokens(
+                model=self.model, messages=[{"role": "user", "content": "ping"}]
+            )
+        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
+            raise ProviderConfigError(f"Anthropic rejected the credentials: {exc}") from exc
+        except (anthropic.NotFoundError, anthropic.BadRequestError) as exc:
+            raise ProviderConfigError(f"Anthropic rejected the model: {exc}") from exc
+        except (anthropic.RateLimitError, anthropic.APIConnectionError) as exc:
+            raise ProviderError(f"Anthropic unavailable: {exc}") from exc
+        except anthropic.APIStatusError as exc:
+            raise ProviderError(f"Anthropic error {exc.status_code}: {exc}") from exc
+        except TypeError as exc:
+            if "authentication method" not in str(exc):
+                raise
+            raise ProviderConfigError(
+                "no Anthropic credentials: set AIRFLOW_DOCTOR_LLM_API_KEY or "
+                "ANTHROPIC_API_KEY, or run `ant auth login`"
+            ) from exc
+        return int(resp.input_tokens)
+
 
 class AnthropicSession:
     def __init__(

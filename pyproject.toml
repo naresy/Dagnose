@@ -1,6 +1,6 @@
 [project]
 name = "airflow-doctor"
-version = "0.0.1"
+version = "0.1.0"
 description = "Open source AI on-call engineer for Apache Airflow"
 readme = "README.md"
 license = "Apache-2.0"
@@ -43,6 +43,7 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501"]  # real log lines and URLs in fixtures
+"src/airflow_doctor/check.py" = ["E501"]  # user-facing help messages read better unsplit
 
 [tool.mypy]
 python_version = "3.10"
