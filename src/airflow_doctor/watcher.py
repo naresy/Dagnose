@@ -22,6 +22,7 @@ from airflow_doctor.queue import JobQueue
 log = logging.getLogger(__name__)
 
 WATERMARK_KEY = "poll_watermark"
+FLOOR_KEY = "poll_floor"  # where the very first poll started; later polls never go earlier
 
 
 def poll_failures(
@@ -36,10 +37,15 @@ def poll_failures(
     so nothing is skipped."""
     now = now or datetime.now(timezone.utc)
     last = queue.get_state(WATERMARK_KEY)
-    if last:
+    floor = queue.get_state(FLOOR_KEY)
+    if last and floor:
         since = datetime.fromisoformat(last) - timedelta(seconds=settings.poll_overlap_s)
+        # The overlap must not reach behind the first poll's window, or a fresh install
+        # would pick up older failures a few seconds after starting.
+        since = max(since, datetime.fromisoformat(floor))
     else:
         since = now - timedelta(minutes=settings.poll_lookback_minutes)
+        queue.set_state(FLOOR_KEY, since.isoformat())
 
     added = 0
     for ti in client.failed_task_instances(since, settings.watch_dag_ids or None):
