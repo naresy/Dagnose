@@ -1,5 +1,7 @@
 # Airflow Doctor
 
+[![ci](https://github.com/naresy/airflow_doctor/actions/workflows/ci.yml/badge.svg)](https://github.com/naresy/airflow_doctor/actions/workflows/ci.yml)
+
 Open source AI on-call engineer for Apache Airflow. It diagnoses failed tasks with evidence, suggests fixes as pull requests, and remembers past incidents. Self-hosted, and you bring your own LLM key.
 
 ## Why
@@ -103,6 +105,16 @@ export AIRFLOW_DOCTOR_HOME=dev/airflow2/doctor-data AIRFLOW_DOCTOR_AIRFLOW_URL=h
 uv run airflow-doctor worker --once       # same commands as above
 AIRFLOW_DOCTOR_AIRFLOW_URL=http://localhost:8081 uv run python dev/record_fixtures.py   # v1 fixtures
 ```
+
+### CI/CD
+
+| When | Workflow | What runs |
+|---|---|---|
+| Every PR and push to `main` | [ci.yml](.github/workflows/ci.yml) | ruff + strict mypy; unit tests on Python 3.10–3.13 (coverage ≥ 85%); **e2e on real Airflow 3 and Airflow 2** in Docker (`dev/e2e.py`: fail the broken DAGs, check listener → worker → collector); build the wheel and smoke test it in a clean venv |
+| Push a tag `vX.Y.Z` | [release.yml](.github/workflows/release.yml) | everything above, then check the tag matches `pyproject.toml`, publish to PyPI (trusted publishing), create a GitHub release |
+| Weekly | [dependabot.yml](.github/dependabot.yml) | grouped update PRs for Python deps and Actions |
+
+Run the e2e check locally the same way CI does: start a stack, then `uv run python dev/e2e.py --airflow 3` (or `--airflow 2`). What each broken DAG must produce lives in `dev/dags/broken/expected.json`, shared by the unit tests and the e2e check.
 
 ## Roadmap
 

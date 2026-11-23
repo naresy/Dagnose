@@ -14,12 +14,12 @@ from tests.conftest import FIXTURES, ReplayTransport, load_recording, recordings
 
 # What a correct collection must find for each broken DAG, on Airflow 2 and 3 alike:
 # exception type, and the DAG-code frame (file, line) the failure points to.
+# Shared with dev/e2e.py, which checks the same against a live Airflow.
+_EXPECTED_FILE = FIXTURES.parent.parent / "dev" / "dags" / "broken" / "expected.json"
 EXPECTED = {
-    "broken_python_keyerror": ("KeyError", "python_keyerror.py", 27),
-    "broken_missing_table": ("OperationalError", "missing_table.py", 26),
-    "broken_task_timeout": ("AirflowTaskTimeout", "task_timeout.py", 25),
-    "broken_bad_connection": ("AirflowNotFoundException", "bad_connection.py", 32),
-    "broken_missing_dependency": ("ModuleNotFoundError", "missing_dependency.py", 22),
+    dag_id: (e["exception"], e["file"], e["line"])
+    for dag_id, e in json.loads(_EXPECTED_FILE.read_text()).items()
+    if not dag_id.startswith("_")
 }
 AIRFLOW_MAJOR = {"v1": "2.", "v2": "3."}
 
