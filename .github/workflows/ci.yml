@@ -78,8 +78,10 @@ jobs:
       - name: Start Airflow ${{ matrix.airflow }}
         working-directory: ${{ matrix.compose-dir }}
         run: docker compose up -d
-      - name: Fail the broken DAGs, then check listener -> worker -> collector
+      - name: Fail the demo DAGs, then check listener -> worker -> collector
         run: uv run python dev/e2e.py --airflow ${{ matrix.airflow }} --timeout 900
+      - name: Same with API polling only (no plugin, no shared folder)
+        run: uv run python dev/e2e.py --airflow ${{ matrix.airflow }} --timeout 900 --watch api
       - name: Airflow logs
         if: failure()
         working-directory: ${{ matrix.compose-dir }}

@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 # Created after migrations, so they also apply to queues made by older versions.
 _INDEXES = """
 CREATE INDEX IF NOT EXISTS jobs_status ON jobs (status, id);
+-- Small key/value store for worker state, e.g. when the API was last polled.
+CREATE TABLE IF NOT EXISTS worker_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 -- The UNIQUE above treats NULL try_numbers as all different; this one does not.
 CREATE UNIQUE INDEX IF NOT EXISTS jobs_unique_try
     ON jobs (dag_id, run_id, task_id, IFNULL(try_number, -1), map_index);
@@ -203,6 +205,17 @@ class JobQueue:
                 (time.time(), time.time() - older_than_s),
             )
             return cur.rowcount
+
+    def get_state(self, key: str) -> str | None:
+        with self._connect() as conn:
+            row = conn.execute("SELECT value FROM worker_state WHERE key = ?", (key,)).fetchone()
+        return None if row is None else str(row["value"])
+
+    def set_state(self, key: str, value: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO worker_state (key, value) VALUES (?, ?)", (key, value)
+            )
 
     def counts(self) -> dict[str, int]:
         with self._connect() as conn:

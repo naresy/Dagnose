@@ -10,7 +10,9 @@ When an Airflow task fails, engineers lose hours digging through logs, DAG code 
 
 ## How it works
 
-1. **Trigger:** an Airflow plugin listener (`on_task_instance_failed`) writes a tiny job file (`dag_id`, `run_id`, `task_id`, `try_number`) into a spool folder with an atomic rename, and returns. No locks, so many task processes can fail at once safely, even over Docker bind mounts or NFS. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Doctor.
+1. **Trigger:** two ways to notice a failure, used together by default (`AIRFLOW_DOCTOR_WATCH=both`, duplicates are dropped):
+   - **API polling** (`api`): the worker asks the Airflow REST API every 30 seconds for tasks that failed since the last check. No plugin and no shared folder, so it works with Kubernetes and Celery workers, managed Airflow (MWAA, Cloud Composer, Astronomer), and tasks killed from outside (out of memory, lost worker).
+   - **Listener plugin** (`plugin`): instant. An Airflow plugin listener (`on_task_instance_failed`) writes a tiny job file (`dag_id`, `run_id`, `task_id`, `try_number`) into a spool folder with an atomic rename, and returns. No locks, so many task processes can fail at once safely, even over Docker bind mounts or NFS. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Doctor.
 2. **Collect:** a separate `airflow-doctor worker` process moves spool files into its own SQLite queue (only the worker touches it), then reads everything through the Airflow REST API (`/api/v2` on 3.x, `/api/v1` on 2.x). It gathers the log tail, the exception and stack trace, the DAG source, task params, the last N runs, and recent git commits that touched the DAG.
 3. **Redact:** it replaces secrets with placeholders like `[REDACTED:password#1]` before anything reaches a model or disk: passwords in connection strings, `password=`/`token=`/`api_key=` values, known token formats (AWS, GitHub, Slack, Stripe, Google, OpenAI, Anthropic, JWT, private keys), emails, unlabelled high-entropy keys, sensitive task params and git author names. The same value always gets the same placeholder, so the model can still see that one secret appears in two places. Redaction is one-way: originals are never stored.
 4. **Recall:** it searches local incident memory for similar past failures, using an error fingerprint plus embeddings.
@@ -162,7 +164,11 @@ We build one piece at a time, and each piece is tested before the next one start
 - [ ] **7. Eval set:** 30 failure cases, accuracy tracking
 - [ ] **8. Launch:** docs, 60-second demo video, Hacker News, r/dataengineering, Airflow Slack, LinkedIn
 
-Planned before launch: a mode that needs no plugin (the worker polls the Airflow API for failed tasks). It is needed for Kubernetes/Celery workers, managed Airflow (MWAA, Composer), and tasks killed for running out of memory.
+Before launch, making it installable by other teams (in progress):
+- [x] API polling mode: no plugin, no shared folder (Kubernetes, Celery, managed Airflow)
+- [ ] `airflow-doctor check`: verify the Airflow, LLM and Slack setup
+- [ ] Worker Docker image and the first PyPI release
+- [ ] Install guide, tested on a separate Airflow project
 
 
 ## Principles

@@ -252,7 +252,11 @@ def worker(
     from airflow_doctor.config import Settings
 
     settings = Settings()
-    typer.echo(f"queue: {settings.queue_path}\ncontexts: {settings.contexts_dir}", err=True)
+    typer.echo(
+        f"watching: {settings.watch} (poll every {settings.poll_interval_s:.0f}s)\n"
+        f"queue: {settings.queue_path}\ncontexts: {settings.contexts_dir}",
+        err=True,
+    )
     n = worker_mod.run(settings, once=once)
     typer.echo(f"processed {n} job(s)", err=True)
 
