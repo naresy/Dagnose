@@ -116,7 +116,8 @@ class AirflowClient:
                 method, url, headers={**extra, **self._auth_headers(refresh=True)}, **kwargs
             )
         if resp.status_code >= 400:
-            raise AirflowAPIError(f"{method} {url} -> HTTP {resp.status_code}: {resp.text[:300]}")
+            detail = " ".join(resp.text.split())[:200]  # one line, even for JSON error bodies
+            raise AirflowAPIError(f"{method} {url} -> HTTP {resp.status_code}: {detail}")
         return resp
 
     def _get(self, path: str, **kwargs: Any) -> dict[str, Any]:

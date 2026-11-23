@@ -47,7 +47,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 | `agent` | Diagnosis loop, read-only tools, evidence check; provider interface with an Anthropic adapter |
 | `fixer` | Branch and PR creation (GitHub / GitLab) |
 | `notifier` | Slack (Block Kit, incoming webhook) and email (SMTP) cards, retries, outbox |
-| `cli` | `airflow-doctor` commands: setup, test, replay a failure |
+| `cli` | `airflow-doctor` commands: check, worker, queue, collect, redact, diagnose, notify, outbox |
 
 ## Tech stack
 
@@ -70,7 +70,8 @@ export AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 # and/or email:
 # export AIRFLOW_DOCTOR_SMTP_HOST=smtp.example.com AIRFLOW_DOCTOR_EMAIL_FROM=doctor@example.com
 # export AIRFLOW_DOCTOR_EMAIL_TO='["oncall@example.com"]'   # JSON list; also SMTP_PORT/_USERNAME/_PASSWORD/_SECURITY
-airflow-doctor setup
+airflow-doctor check        # verifies Airflow, login, how failures are found, LLM key (free), Slack, email
+airflow-doctor worker       # runs the pipeline; leave it running
 ```
 
 Keep keys out of git: `.env` is git-ignored, CI fails if a real-looking key (Anthropic, OpenAI, AWS, GitHub, Slack, Stripe, private key) is in the repo (`dev/scan_secrets.py`), and `./dev/install_hooks.sh` adds a pre-commit hook that blocks such commits locally.
@@ -166,7 +167,7 @@ We build one piece at a time, and each piece is tested before the next one start
 
 Before launch, making it installable by other teams (in progress):
 - [x] API polling mode: no plugin, no shared folder (Kubernetes, Celery, managed Airflow)
-- [ ] `airflow-doctor check`: verify the Airflow, LLM and Slack setup
+- [x] `airflow-doctor check`: verify the Airflow, LLM and Slack setup (`--send-test` posts a test message)
 - [ ] Worker Docker image and the first PyPI release
 - [ ] Install guide, tested on a separate Airflow project
 
