@@ -124,3 +124,33 @@ def test_try_number_defaults_to_latest(make_settings: Any) -> None:
         ctx = collect(job, client, settings)
     assert ctx.job.try_number == 1
     assert ctx.exception is not None
+
+
+def test_log_airflow_could_not_serve_is_reported(make_settings: Any) -> None:
+    """Airflow returns a warning instead of the log when its components do not share a
+    secret key. That must show up as a collection error, not as an empty log."""
+    from airflow_doctor.notifier import build_card
+    from airflow_doctor.redactor import Redactor
+
+    rec = load_recording(FIXTURES / "api" / "v2" / "demo_orders_tax.json")
+    unavailable = json.dumps(
+        {
+            "content": [
+                {"event": "::group::Log message source details"},
+                {
+                    "event": "!!!! Please make sure that all your Airflow components have the same 'secret_key' configured in '[api]' section"
+                },
+                {"event": "::endgroup::"},
+            ]
+        }
+    )
+    exchanges = [
+        {**ex, "body": unavailable} if "/logs/" in ex["path"] else ex for ex in rec["exchanges"]
+    ]
+    settings = make_settings()
+    with AirflowClient(settings, transport=ReplayTransport(exchanges)) as client:
+        ctx = collect(FailureJob(**rec["job"]), client, settings)
+    assert ctx.exceptions == []
+    assert any("secret_key" in e for e in ctx.collection_errors)
+    card = build_card(Redactor().redact(ctx), None, ui_url=None)
+    assert card.summary.startswith("The task failed, but its log could not be read")

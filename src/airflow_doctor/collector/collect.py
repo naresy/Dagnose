@@ -9,7 +9,7 @@ from typing import Any, TypeVar
 
 from airflow_doctor.collector.airflow_api import AirflowClient
 from airflow_doctor.collector.git import recent_commits
-from airflow_doctor.collector.logs import parse_log
+from airflow_doctor.collector.logs import log_unavailable_reason, parse_log
 from airflow_doctor.config import Settings
 from airflow_doctor.models import FailureContext, FailureJob, RunSummary
 
@@ -58,6 +58,9 @@ def collect(job: FailureJob, client: AirflowClient, settings: Settings) -> Failu
         raw = attempt("task log", lambda: client.task_log(job, try_number), None)
         if raw is not None:
             parsed = parse_log(raw)
+            unavailable = log_unavailable_reason(raw)
+            if unavailable and not parsed.exceptions:
+                errors.append(f"task log: Airflow could not serve it: {unavailable}")
             ctx.exceptions = parsed.exceptions
             ctx.log_tail = parsed.tail(settings.log_tail_lines)
             ctx.log_total_lines = len(parsed.lines)
