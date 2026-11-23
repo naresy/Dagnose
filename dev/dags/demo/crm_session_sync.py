@@ -1,7 +1,4 @@
-"""Broken DAG: credentials leak into logs, task params and the error. Tests the redactor.
-
-Every credential here is FAKE, made up for tests. None of them works anywhere.
-"""
+"""Sync CRM sessions into the warehouse."""
 
 from datetime import datetime
 
@@ -10,21 +7,20 @@ try:
 except ImportError:  # Airflow 2.x
     from airflow.decorators import dag, task
 
-# Fake values. dev/dags/broken/expected.json lists them under "must_not_leak".
 WAREHOUSE_DSN = "postgresql://etl_user:Sup3r-S3cret-Pw@warehouse.internal:5432/sales"
 CRM_SESSION = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJldGwtYm90In0.ZmFrZS1zaWduYXR1cmUtZm9yLXRlc3Rz"
 ONCALL_EMAIL = "data-oncall@example.com"
 
 
 @dag(
-    dag_id="broken_leaky_credentials",
+    dag_id="demo_crm_session_sync",
     schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    tags=["broken", "permissions"],
+    tags=["crm"],
     default_args={"retries": 0},
 )
-def broken_leaky_credentials():
+def demo_crm_session_sync():
     @task
     def sync_crm(crm_api_key: str, region: str) -> None:
         print(f"Connecting to {WAREHOUSE_DSN}")
@@ -35,4 +31,4 @@ def broken_leaky_credentials():
     sync_crm(crm_api_key="ck_7Hq2LmX9pR4vT8wZ3nB6yK1d", region="eu-west-1")
 
 
-broken_leaky_credentials()
+demo_crm_session_sync()

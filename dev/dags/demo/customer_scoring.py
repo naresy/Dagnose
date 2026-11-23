@@ -1,4 +1,4 @@
-"""Broken DAG: dependency. Task imports a package not installed on the worker."""
+"""Customer scoring."""
 
 from datetime import datetime
 
@@ -9,21 +9,21 @@ except ImportError:  # Airflow 2.x
 
 
 @dag(
-    dag_id="broken_missing_dependency",
+    dag_id="demo_customer_scoring",
     schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    tags=["broken", "dependency"],
+    tags=["ml"],
     default_args={"retries": 0},
 )
-def broken_missing_dependency():
+def demo_customer_scoring():
     @task
     def score_customers() -> None:
-        import polars_ml_toolkit  # not in the worker image
+        import polars_ml_toolkit
 
         polars_ml_toolkit.score("customers.parquet")
 
     score_customers()
 
 
-broken_missing_dependency()
+demo_customer_scoring()

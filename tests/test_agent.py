@@ -35,8 +35,8 @@ from airflow_doctor.models import (
 from airflow_doctor.redactor import Redactor
 from tests.conftest import FIXTURES
 
-LEAKY = FIXTURES / "contexts" / "v2" / "broken_leaky_credentials.json"
-KEYERROR = FIXTURES / "contexts" / "v2" / "broken_python_keyerror.json"
+LEAKY = FIXTURES / "contexts" / "v2" / "demo_crm_session_sync.json"
+KEYERROR = FIXTURES / "contexts" / "v2" / "demo_orders_tax.json"
 SECRETS = ["Sup3r-S3cret-Pw", "data-oncall@example.com", "ZmFrZS1zaWduYXR1cmUtZm9yLXRlc3Rz"]
 
 
@@ -73,7 +73,7 @@ def answer(**overrides: Any) -> Turn:
         "category": "code_bug",
         "root_cause": "extract_orders returns no 'country' field; compute_tax indexes it.",
         "evidence": [
-            {"source": "dag_source", "line": 27, "quote": 'TAX_RATES[order["country"]]'},
+            {"source": "dag_source", "line": 26, "quote": 'TAX_RATES[order["country"]]'},
             {"source": "exception", "line": None, "quote": "KeyError: 'country'"},
         ],
         "confidence": 0.9,
@@ -103,7 +103,7 @@ def test_prompt_numbers_lines_and_holds_no_secrets() -> None:
     for secret in SECRETS:
         assert secret not in prompt
     assert "[REDACTED:password#1]" in prompt
-    assert "  33 | " in prompt  # DAG source line numbers, as evidence cites them
+    assert "  29 | " in prompt  # DAG source line numbers, as evidence cites them
     assert f"[{ctx.log_tail[0].n}] " in prompt  # log line numbers
     assert "<- DAG code" in prompt and "<- this failure" in prompt
 
@@ -205,7 +205,7 @@ def _ctx() -> RedactedContext:
         (Evidence(source="dag_source", line=2, quote="TAX_RATES[order['country']]"), True),
         (Evidence(source="dag_source", line=1, quote="TAX_RATES"), False),
         (Evidence(source="task_params", quote='"amount": 19.99'), True),
-        (Evidence(source="run_history", quote="r failed"), True),
+        (Evidence(source="run_history", quote="r | failed"), True),  # as rendered in the prompt
         (Evidence(source="commit", quote="anything"), False),
         (Evidence(source="tool_result", quote="extract_orders success"), True),
         (Evidence(source="log", line=8, quote="   "), False),  # empty quote never verifies
@@ -345,3 +345,19 @@ def test_make_provider(make_settings: Any) -> None:
     assert (p.name, p.model) == ("anthropic", "claude-opus-5-5")
     with pytest.raises(ProviderConfigError, match="not supported"):
         make_provider(make_settings(llm_model="openai/gpt-x"))
+
+
+def test_history_quotes_from_the_prompt_verify() -> None:
+    """Regression: the checker must compare against the history exactly as rendered."""
+    ctx, _ = load(KEYERROR)
+    prompt = render_context(ctx)
+    row = next(line for line in prompt.splitlines() if "<- this failure" in line)
+    quote = row.replace("  <- this failure", "")
+    d = Diagnosis(
+        summary="s",
+        category="code_bug",
+        root_cause="r",
+        evidence=[Evidence(source="run_history", quote=quote)],
+        confidence=0.9,
+    )
+    assert verify_evidence(d, ctx, []) == (1, 1)

@@ -1,4 +1,4 @@
-"""Broken DAG: code bug. Downstream task reads a key the upstream payload never had."""
+"""Order tax calculation."""
 
 from datetime import datetime
 
@@ -9,26 +9,26 @@ except ImportError:  # Airflow 2.x
 
 
 @dag(
-    dag_id="broken_python_keyerror",
+    dag_id="demo_orders_tax",
     schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    tags=["broken", "code_bug"],
+    tags=["finance"],
     default_args={"retries": 0},
 )
-def broken_python_keyerror():
+def demo_orders_tax():
     @task
     def extract_orders() -> dict:
         return {"order_id": 42, "amount": 19.99, "currency": "USD"}
 
     @task
     def compute_tax(order: dict) -> float:
-        # Bug: upstream renamed "country" away; nobody updated this task.
-        return order["amount"] * TAX_RATES[order["country"]]
+        rate = TAX_RATES[order["country"]]
+        return order["amount"] * rate
 
     compute_tax(extract_orders())
 
 
 TAX_RATES = {"US": 0.07, "DE": 0.19}
 
-broken_python_keyerror()
+demo_orders_tax()

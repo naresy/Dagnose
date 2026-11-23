@@ -92,7 +92,7 @@ cd dev && docker compose up -d            # local Airflow 3.3 at http://localhos
 
 The dev stack mounts `src/` into Airflow and loads the listener from `dev/plugins/`. Failed tasks land in `dev/doctor-data/spool/`.
 
-`dev/dags/broken/` holds deliberately broken DAGs (code bug, missing table, timeout, bad connection, missing dependency, and one that leaks fake credentials to test redaction). Trigger them from the UI or REST API to produce real failures, then:
+`dev/dags/demo/` holds deliberately broken DAGs, written like ordinary pipelines so their names and comments do not give the cause away (what each one does wrong is in [its README](dev/dags/demo/README.md)). One leaks fake credentials to test redaction. Trigger them from the UI or REST API to produce real failures, then:
 
 ```bash
 export AIRFLOW_DOCTOR_HOME=dev/doctor-data
@@ -132,7 +132,7 @@ AIRFLOW_DOCTOR_AIRFLOW_URL=http://localhost:8081 uv run python dev/record_fixtur
 | Push a tag `vX.Y.Z` | [release.yml](.github/workflows/release.yml) | everything above, then check the tag matches `pyproject.toml`, publish to PyPI (trusted publishing), create a GitHub release |
 | Weekly | [dependabot.yml](.github/dependabot.yml) | grouped update PRs for Python deps and Actions |
 
-Run the e2e check locally the same way CI does: start a stack, then `uv run python dev/e2e.py --airflow 3` (or `--airflow 2`). What each broken DAG must produce lives in `dev/dags/broken/expected.json`, shared by the unit tests and the e2e check.
+Run the e2e check locally the same way CI does: start a stack, then `uv run python dev/e2e.py --airflow 3` (or `--airflow 2`). What each broken DAG must produce lives in `dev/dags/demo/expected.json`, shared by the unit tests and the e2e check.
 
 ## Roadmap
 

@@ -1,6 +1,6 @@
 """Record real Airflow REST API traffic for the broken DAGs, for offline tests.
 
-For each failed broken_* task, this runs the collector against a live local Airflow,
+For each failed demo_* task, this runs the collector against a live local Airflow,
 saves every HTTP exchange to tests/fixtures/api/<api>/<dag_id>.json, and saves the
 resulting FailureContext to tests/fixtures/contexts/<api>/<dag_id>.json.
 
@@ -49,10 +49,10 @@ class RecordingTransport(httpx.BaseTransport):
         return response
 
 
-def failed_broken_tasks(client: AirflowClient) -> list[FailureJob]:
-    """Latest failed try of each task in each broken_* DAG."""
+def failed_demo_tasks(client: AirflowClient) -> list[FailureJob]:
+    """Latest failed try of each task in each demo_* DAG."""
     seen: dict[tuple[str, str], FailureJob] = {}
-    dags = client._get("/dags", params={"dag_id_pattern": "broken_", "limit": 100})["dags"]
+    dags = client._get("/dags", params={"dag_id_pattern": "demo_", "limit": 100})["dags"]
     for dag in dags:
         body = {"dag_ids": [dag["dag_id"]], "state": ["failed"], "page_limit": 100}
         resp = client._request("POST", "/dags/~/dagRuns/~/taskInstances/list", json=body)
@@ -70,10 +70,10 @@ def failed_broken_tasks(client: AirflowClient) -> list[FailureJob]:
 def main() -> None:
     settings = Settings(git_repo_path=ROOT, git_dags_subdir="dev/dags")
     with AirflowClient(settings) as lister:
-        jobs = failed_broken_tasks(lister)
+        jobs = failed_demo_tasks(lister)
         api = lister.api
     if not jobs:
-        raise SystemExit("No failed broken_* tasks found. Trigger the broken DAGs first.")
+        raise SystemExit("No failed demo_* tasks found. Trigger the demo DAGs first.")
     for job in jobs:
         transport = RecordingTransport()
         with AirflowClient(settings, transport=transport) as client:

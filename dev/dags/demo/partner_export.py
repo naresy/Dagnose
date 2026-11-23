@@ -1,4 +1,4 @@
-"""Broken DAG: timeout. Task runs longer than its execution_timeout."""
+"""Partner data export."""
 
 import time
 from datetime import datetime, timedelta
@@ -10,21 +10,21 @@ except ImportError:  # Airflow 2.x
 
 
 @dag(
-    dag_id="broken_task_timeout",
+    dag_id="demo_partner_export",
     schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    tags=["broken", "timeout"],
+    tags=["partners"],
     default_args={"retries": 0},
 )
-def broken_task_timeout():
+def demo_partner_export():
     @task(execution_timeout=timedelta(seconds=10))
-    def slow_api_export() -> None:
+    def export_partner_data() -> None:
         for page in range(1, 100):
             print(f"Fetching page {page} from partner API ...")
             time.sleep(3)
 
-    slow_api_export()
+    export_partner_data()
 
 
-broken_task_timeout()
+demo_partner_export()

@@ -1,4 +1,4 @@
-"""Broken DAG: upstream data. Query against a table that was never created."""
+"""Daily revenue report."""
 
 import sqlite3
 from datetime import datetime
@@ -10,19 +10,18 @@ except ImportError:  # Airflow 2.x
 
 
 @dag(
-    dag_id="broken_missing_table",
+    dag_id="demo_daily_revenue",
     schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    tags=["broken", "upstream_data"],
+    tags=["finance", "reporting"],
     default_args={"retries": 0},
 )
-def broken_missing_table():
+def demo_daily_revenue():
     @task
     def daily_revenue() -> int:
         conn = sqlite3.connect("/tmp/warehouse.db")
         conn.execute("CREATE TABLE IF NOT EXISTS customers (id INTEGER, name TEXT)")
-        # The orders table is loaded by another pipeline that has not run.
         row = conn.execute(
             "SELECT SUM(amount) FROM orders WHERE order_date = date('now')"
         ).fetchone()
@@ -31,4 +30,4 @@ def broken_missing_table():
     daily_revenue()
 
 
-broken_missing_table()
+demo_daily_revenue()

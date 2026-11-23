@@ -241,7 +241,7 @@ def test_allow_and_extra_patterns() -> None:
 EXPECTED = {
     k: v
     for k, v in json.loads(
-        (FIXTURES.parent.parent / "dev/dags/broken/expected.json").read_text()
+        (FIXTURES.parent.parent / "dev/dags/demo/expected.json").read_text()
     ).items()
     if not k.startswith("_")
 }

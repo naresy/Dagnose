@@ -2,7 +2,7 @@
 
 Triggers every broken DAG, waits for the tasks to fail, lets the listener spool the
 failures, runs the worker, and checks each collected FailureContext against
-dev/dags/broken/expected.json. Exits non-zero on any mismatch. Used by CI; works
+dev/dags/demo/expected.json. Exits non-zero on any mismatch. Used by CI; works
 locally the same way:
 
     cd dev && docker compose up -d                 && uv run python dev/e2e.py --airflow 3
@@ -29,7 +29,7 @@ from airflow_doctor.models import RedactedContext
 ROOT = Path(__file__).resolve().parent.parent
 EXPECTED: dict[str, dict[str, Any]] = {
     k: v
-    for k, v in json.loads((ROOT / "dev/dags/broken/expected.json").read_text()).items()
+    for k, v in json.loads((ROOT / "dev/dags/demo/expected.json").read_text()).items()
     if not k.startswith("_")
 }
 TARGETS = {
@@ -128,8 +128,8 @@ class Airflow:
         health = self.http.get(path).json()
         return all(health[c]["status"] == "healthy" for c in ("metadatabase", "scheduler"))
 
-    def broken_dags_ready(self) -> bool:
-        dags = self.call("GET", "/dags", params={"dag_id_pattern": "broken_", "limit": 100})
+    def demo_dags_ready(self) -> bool:
+        dags = self.call("GET", "/dags", params={"dag_id_pattern": "demo_", "limit": 100})
         found = {d["dag_id"] for d in dags["dags"] if not d.get("is_paused")}
         return set(EXPECTED) <= found
 
@@ -205,7 +205,7 @@ def main() -> int:
     airflow = Airflow(str(target["url"]), api)
     wait_for("Airflow to be healthy", airflow.healthy, args.timeout)
     airflow.login()
-    wait_for("broken DAGs to be parsed and unpaused", airflow.broken_dags_ready, args.timeout)
+    wait_for("demo DAGs to be parsed and unpaused", airflow.demo_dags_ready, args.timeout)
     log(f"Airflow {args.airflow} is up at {target['url']}")
 
     runs = {dag_id: airflow.trigger(dag_id) for dag_id in EXPECTED}

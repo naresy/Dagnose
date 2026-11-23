@@ -26,9 +26,9 @@ from airflow_doctor.notifier.slack import NotifyError, send_slack, slack_payload
 from airflow_doctor.redactor import Redactor
 from tests.conftest import FIXTURES
 
-LEAKY = FIXTURES / "contexts" / "v2" / "broken_leaky_credentials.json"
-KEYERROR_V1 = FIXTURES / "contexts" / "v1" / "broken_python_keyerror.json"
-KEYERROR_V2 = FIXTURES / "contexts" / "v2" / "broken_python_keyerror.json"
+LEAKY = FIXTURES / "contexts" / "v2" / "demo_crm_session_sync.json"
+KEYERROR_V1 = FIXTURES / "contexts" / "v1" / "demo_orders_tax.json"
+KEYERROR_V2 = FIXTURES / "contexts" / "v2" / "demo_orders_tax.json"
 SECRETS = [
     "Sup3r-S3cret-Pw",
     "data-oncall@example.com",
@@ -49,7 +49,7 @@ def diagnosis_run(ctx: RedactedContext, **overrides: Any) -> DiagnosisRun:
         "root_cause": "extract_orders stopped returning 'country'.",
         "evidence": [
             Evidence(
-                source="dag_source", line=27, quote='TAX_RATES[order["country"]]', verified=True
+                source="dag_source", line=26, quote='TAX_RATES[order["country"]]', verified=True
             ),
             Evidence(source="log", line=3, quote="disk full", verified=False),
         ],
@@ -81,7 +81,7 @@ def diagnosis_run(ctx: RedactedContext, **overrides: Any) -> DiagnosisRun:
 def test_card_with_diagnosis() -> None:
     ctx = load(KEYERROR_V2)
     card = build_card(ctx, diagnosis_run(ctx), ui_url="http://airflow.test")
-    assert card.title == "broken_python_keyerror.compute_tax failed"
+    assert card.title == "demo_orders_tax.compute_tax failed"
     assert card.headline == "Code bug · confidence 0.60"
     assert card.diagnosed and card.has_patch
     assert [(e.verified, e.where) for e in card.evidence] == [
@@ -98,9 +98,7 @@ def test_card_without_diagnosis_shows_the_error_and_why() -> None:
     assert card.headline == "Not diagnosed" and not card.diagnosed
     assert card.summary == "KeyError: 'country'"
     assert card.note == "No diagnosis: no Anthropic credentials"
-    assert [(e.where, e.quote) for e in card.evidence] == [
-        ("python_keyerror.py:27", "in compute_tax")
-    ]
+    assert [(e.where, e.quote) for e in card.evidence] == [("orders_tax.py:26", "in compute_tax")]
     assert card.airflow_url is None
 
 
@@ -132,11 +130,11 @@ def test_long_text_is_cut() -> None:
     [
         (
             KEYERROR_V2,
-            "http://ui.test/dags/broken_python_keyerror/runs/{run}/tasks/compute_tax?try_number=1",
+            "http://ui.test/dags/demo_orders_tax/runs/{run}/tasks/compute_tax?try_number=1",
         ),
         (
             KEYERROR_V1,
-            "http://ui.test/dags/broken_python_keyerror/grid?dag_run_id={raw}&task_id=compute_tax&tab=logs",
+            "http://ui.test/dags/demo_orders_tax/grid?dag_run_id={raw}&task_id=compute_tax&tab=logs",
         ),
     ],
 )
@@ -171,7 +169,7 @@ def test_slack_payload() -> None:
     assert ":white_check_mark: `dag_source:27`" in text and ":grey_question: `log:3`" in text
     assert "A patch is in the diagnosis file" in text
     assert payload["blocks"][-1]["elements"][0]["url"].startswith("http://ui.test/dags/")
-    assert payload["text"].startswith("broken_python_keyerror.compute_tax failed: ")
+    assert payload["text"].startswith("demo_orders_tax.compute_tax failed: ")
 
 
 def test_slack_escapes_markup() -> None:
@@ -280,14 +278,10 @@ def test_email(make_settings: Any, smtp: type[FakeSMTP]) -> None:
     [msg] = smtp.sent
     assert (
         msg["Subject"]
-        == "[Airflow Doctor] broken_python_keyerror.compute_tax failed: Code bug · confidence 0.60"
+        == "[Airflow Doctor] demo_orders_tax.compute_tax failed: Code bug · confidence 0.60"
     )
     assert msg["To"] == "oncall@example.test, data@example.test"
-    assert (
-        msg.get_body(("plain",))
-        .get_content()
-        .startswith("broken_python_keyerror.compute_tax failed")
-    )
+    assert msg.get_body(("plain",)).get_content().startswith("demo_orders_tax.compute_tax failed")
     assert "<h3>Root cause</h3>" in msg.get_body(("html",)).get_content()
 
 
@@ -334,5 +328,5 @@ def test_failed_delivery_goes_to_outbox_and_resends(
     )
     assert sorted(again.sent) == ["job.email.json", "job.slack.json"]
     assert list(settings.outbox_dir.iterdir()) == []
-    assert hook.bodies[0]["blocks"][0]["text"]["text"] == "broken_leaky_credentials.sync_crm failed"
-    assert smtp.sent[0]["Subject"].startswith("[Airflow Doctor] broken_leaky_credentials.sync_crm")
+    assert hook.bodies[0]["blocks"][0]["text"]["text"] == "demo_crm_session_sync.sync_crm failed"
+    assert smtp.sent[0]["Subject"].startswith("[Airflow Doctor] demo_crm_session_sync.sync_crm")

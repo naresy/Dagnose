@@ -1,4 +1,4 @@
-"""Broken DAG: config. Task uses a connection id that does not exist."""
+"""Push account updates to the CRM."""
 
 from datetime import datetime
 
@@ -18,21 +18,20 @@ except ImportError:  # Airflow 2.x
 
 
 @dag(
-    dag_id="broken_bad_connection",
+    dag_id="demo_crm_push",
     schedule=None,
     start_date=datetime(2026, 1, 1),
     catchup=False,
-    tags=["broken", "config"],
+    tags=["crm"],
     default_args={"retries": 0},
 )
-def broken_bad_connection():
+def demo_crm_push():
     @task
     def push_to_crm() -> None:
-        # Typo: the real connection is "salesforce_prod".
         conn = get_connection("salesforce_prd")
         print(f"Connecting to {conn.host}")
 
     push_to_crm()
 
 
-broken_bad_connection()
+demo_crm_push()

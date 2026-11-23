@@ -37,7 +37,7 @@ def test_worker_saves_only_redacted_context(
     """The raw context (with secrets) must never be written to disk."""
     from tests.conftest import FIXTURES, ReplayTransport, load_recording
 
-    rec = load_recording(FIXTURES / "api" / "v2" / "broken_leaky_credentials.json")
+    rec = load_recording(FIXTURES / "api" / "v2" / "demo_crm_session_sync.json")
     settings = make_settings()
     job = rec["job"]
     JobQueue(settings.queue_path).enqueue(
@@ -67,7 +67,7 @@ def _leaky_job(
 ) -> Any:
     from tests.conftest import FIXTURES, ReplayTransport, load_recording
 
-    rec = load_recording(FIXTURES / "api" / "v2" / "broken_leaky_credentials.json")
+    rec = load_recording(FIXTURES / "api" / "v2" / "demo_crm_session_sync.json")
     settings = make_settings(**settings_overrides)
     job = rec["job"]
     JobQueue(settings.queue_path).enqueue(
@@ -93,7 +93,7 @@ def test_worker_saves_diagnosis(make_settings: Any, monkeypatch: pytest.MonkeyPa
     [saved] = list(settings.diagnoses_dir.glob("*.json"))
     run = json.loads(saved.read_text())
     assert run["diagnosis"]["category"] == "permissions"
-    assert run["job"]["dag_id"] == "broken_leaky_credentials"
+    assert run["job"]["dag_id"] == "demo_crm_session_sync"
     # The model only ever saw the redacted context.
     assert "Sup3r-S3cret-Pw" not in fake.started["prompt"]
     assert "[REDACTED:password#1]" in fake.started["prompt"]
