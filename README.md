@@ -60,7 +60,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 - **Quality:** pytest, ruff, mypy, GitHub Actions
 - **Eval:** Docker Compose with a local Airflow and deliberately broken DAGs (30+ real failure cases)
 
-## Install (planned)
+## Install
 
 ```bash
 pip install airflow-doctor
@@ -75,6 +75,16 @@ airflow-doctor worker       # runs the pipeline; leave it running
 ```
 
 Keep keys out of git: `.env` is git-ignored, CI fails if a real-looking key (Anthropic, OpenAI, AWS, GitHub, Slack, Stripe, private key) is in the repo (`dev/scan_secrets.py`), and `./dev/install_hooks.sh` adds a pre-commit hook that blocks such commits locally.
+
+Or run the worker as a container (images for Intel and ARM; published with each release):
+
+```bash
+docker run --rm --env-file .env ghcr.io/naresy/airflow-doctor:latest check
+docker run -d --name airflow-doctor --env-file .env -v airflow-doctor-data:/data \
+  ghcr.io/naresy/airflow-doctor:latest
+```
+
+With `AIRFLOW_DOCTOR_WATCH=api` the container needs nothing from your Airflow setup except a read-only login: no plugin, no shared folder.
 
 Settings can also go in a `.env` file in the directory you run `airflow-doctor` from (git-ignored; real environment variables win over it):
 
@@ -168,7 +178,7 @@ We build one piece at a time, and each piece is tested before the next one start
 Before launch, making it installable by other teams (in progress):
 - [x] API polling mode: no plugin, no shared folder (Kubernetes, Celery, managed Airflow)
 - [x] `airflow-doctor check`: verify the Airflow, LLM and Slack setup (`--send-test` posts a test message)
-- [ ] Worker Docker image and the first PyPI release
+- [x] Worker Docker image (CI-tested; published to ghcr.io on release) and the first release prepared (v0.1.0)
 - [ ] Install guide, tested on a separate Airflow project
 
 
