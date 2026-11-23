@@ -6,9 +6,9 @@ from typing import Any
 import httpx
 import pytest
 
-from airflow_doctor import worker
-from airflow_doctor.collector import airflow_api
-from airflow_doctor.queue import JobQueue
+from dagnose import worker
+from dagnose.collector import airflow_api
+from dagnose.queue import JobQueue
 
 
 def test_retry_delay_grows() -> None:
@@ -103,7 +103,7 @@ def test_worker_saves_diagnosis(make_settings: Any, monkeypatch: pytest.MonkeyPa
 def test_worker_without_credentials_still_saves_context(
     make_settings: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from airflow_doctor.agent import ProviderConfigError
+    from dagnose.agent import ProviderConfigError
 
     settings = _leaky_job(make_settings, monkeypatch, diagnose=True)
 
@@ -120,8 +120,8 @@ def test_worker_without_credentials_still_saves_context(
 def test_worker_retries_when_the_model_is_down(
     make_settings: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from airflow_doctor.agent import ProviderError
-    from airflow_doctor.agent.provider import Turn
+    from dagnose.agent import ProviderError
+    from dagnose.agent.provider import Turn
 
     settings = _leaky_job(make_settings, monkeypatch, diagnose=True)
 
@@ -148,7 +148,7 @@ def test_worker_notifies_with_the_reason(
     sent: list[dict[str, Any]] = []
 
     def fake_notify(ctx: Any, run: Any, s: Any, **kwargs: Any) -> Any:
-        from airflow_doctor.notifier import NotifyReport
+        from dagnose.notifier import NotifyReport
 
         sent.append({"ctx": ctx, "run": run, **kwargs})
         return NotifyReport(sent=["slack"])

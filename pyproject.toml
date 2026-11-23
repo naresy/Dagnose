@@ -1,10 +1,27 @@
 [project]
-name = "airflow-doctor"
+name = "dagnose"
 version = "0.1.0"
-description = "Open source AI on-call engineer for Apache Airflow"
+description = "Open source AI on-call engineer for Apache Airflow: diagnoses failed tasks with evidence"
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+authors = [{ name = "naresy" }]
+keywords = ["airflow", "apache-airflow", "data-engineering", "on-call", "incident", "root-cause", "llm", "observability"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Apache Airflow",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
 dependencies = [
     "anthropic>=2.12.0",
     "httpx>=0.27",
@@ -13,11 +30,17 @@ dependencies = [
     "typer>=0.12",
 ]
 
+[project.urls]
+Homepage = "https://github.com/naresy/airflow_doctor"
+Documentation = "https://github.com/naresy/airflow_doctor/blob/main/docs/install.md"
+Issues = "https://github.com/naresy/airflow_doctor/issues"
+Changelog = "https://github.com/naresy/airflow_doctor/blob/main/CHANGELOG.md"
+
 [project.scripts]
-airflow-doctor = "airflow_doctor.cli:app"
+dagnose = "dagnose.cli:app"
 
 [project.entry-points."airflow.plugins"]
-airflow_doctor = "airflow_doctor.plugin:AirflowDoctorPlugin"
+dagnose = "dagnose.plugin:DagnosePlugin"
 
 [dependency-groups]
 dev = [
@@ -32,7 +55,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/airflow_doctor"]
+packages = ["src/dagnose"]
 
 [tool.ruff]
 line-length = 100
@@ -43,7 +66,7 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501"]  # real log lines and URLs in fixtures
-"src/airflow_doctor/check.py" = ["E501"]  # user-facing help messages read better unsplit
+"src/dagnose/check.py" = ["E501"]  # user-facing help messages read better unsplit
 
 [tool.mypy]
 python_version = "3.10"
@@ -55,16 +78,16 @@ module = ["airflow", "airflow.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["airflow_doctor.plugin", "airflow_doctor.plugin.*"]
+module = ["dagnose.plugin", "dagnose.plugin.*"]
 disallow_untyped_decorators = false
 disallow_subclassing_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: needs the local Airflow from dev/docker-compose.yml (AIRFLOW_DOCTOR_IT=1)"]
+markers = ["integration: needs the local Airflow from dev/docker-compose.yml (DAGNOSE_IT=1)"]
 
 [tool.coverage.run]
-source = ["airflow_doctor"]
+source = ["dagnose"]
 
 [tool.coverage.report]
 fail_under = 85

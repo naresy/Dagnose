@@ -12,18 +12,18 @@ from typing import Any
 import httpx
 import pytest
 
-from airflow_doctor.models import (
+from dagnose.models import (
     Diagnosis,
     DiagnosisRun,
     Evidence,
     FailureContext,
     RedactedContext,
 )
-from airflow_doctor.notifier import build_card, notify, resend_outbox
-from airflow_doctor.notifier.card import airflow_link
-from airflow_doctor.notifier.mail import build_email, email_html, email_text
-from airflow_doctor.notifier.slack import NotifyError, send_slack, slack_payload
-from airflow_doctor.redactor import Redactor
+from dagnose.notifier import build_card, notify, resend_outbox
+from dagnose.notifier.card import airflow_link
+from dagnose.notifier.mail import build_email, email_html, email_text
+from dagnose.notifier.slack import NotifyError, send_slack, slack_payload
+from dagnose.redactor import Redactor
 from tests.conftest import FIXTURES
 
 LEAKY = FIXTURES / "contexts" / "v2" / "demo_crm_session_sync.json"
@@ -262,9 +262,9 @@ def smtp() -> type[FakeSMTP]:
 def mail_settings(make_settings: Any, **extra: Any) -> Any:
     return make_settings(
         smtp_host="smtp.test",
-        smtp_username="doctor",
+        smtp_username="dagnose",
         smtp_password="pw",
-        email_from="doctor@example.test",
+        email_from="dagnose@example.test",
         email_to=["oncall@example.test", "data@example.test"],
         **extra,
     )
@@ -274,11 +274,10 @@ def test_email(make_settings: Any, smtp: type[FakeSMTP]) -> None:
     ctx = load(KEYERROR_V2)
     report = notify(ctx, diagnosis_run(ctx), mail_settings(make_settings), smtp_factory=smtp)
     assert report.sent == ["email"]
-    assert smtp.calls == ["connect smtp.test:587", "starttls", "login doctor"]
+    assert smtp.calls == ["connect smtp.test:587", "starttls", "login dagnose"]
     [msg] = smtp.sent
     assert (
-        msg["Subject"]
-        == "[Airflow Doctor] demo_orders_tax.compute_tax failed: Code bug · confidence 0.60"
+        msg["Subject"] == "[Dagnose] demo_orders_tax.compute_tax failed: Code bug · confidence 0.60"
     )
     assert msg["To"] == "oncall@example.test, data@example.test"
     assert msg.get_body(("plain",)).get_content().startswith("demo_orders_tax.compute_tax failed")
@@ -329,4 +328,4 @@ def test_failed_delivery_goes_to_outbox_and_resends(
     assert sorted(again.sent) == ["job.email.json", "job.slack.json"]
     assert list(settings.outbox_dir.iterdir()) == []
     assert hook.bodies[0]["blocks"][0]["text"]["text"] == "demo_crm_session_sync.sync_crm failed"
-    assert smtp.sent[0]["Subject"].startswith("[Airflow Doctor] demo_crm_session_sync.sync_crm")
+    assert smtp.sent[0]["Subject"].startswith("[Dagnose] demo_crm_session_sync.sync_crm")

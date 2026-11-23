@@ -1,0 +1,12 @@
+# Changelog
+
+## 0.1.0 (unreleased)
+
+First release.
+
+- **Finds failed tasks** by polling the Airflow REST API (no plugin, no shared folder; works with Kubernetes and Celery workers) and, optionally, instantly through an Airflow listener plugin. Airflow 2.x (REST API v1) and 3.x (v2), tested on 2.11 and 3.3.
+- **Collects** the exception and failing line, task log, DAG source, task inputs, run history and recent git commits to the DAG file. Detects when Airflow itself cannot serve a task log and says why.
+- **Redacts** secrets before anything leaves the process: passwords in connection strings, `password=` / `token=` / `api_key=` values, known token formats, emails, high-entropy keys, sensitive task params and git author names. Same secret, same placeholder; one-way.
+- **Diagnoses** with Claude (Opus 5.5 by default) through a provider interface: summary, category, root cause, evidence quotes checked against the logs and code, confidence (capped when the evidence does not check out), suggested fix and an optional patch. About $0.03 per diagnosis.
+- **Notifies** through Slack (incoming webhook) and email (SMTP), redacted again before sending; undeliverable messages go to an outbox.
+- **`dagnose check`** verifies the whole setup, with a fix for each problem; **`dagnose worker`** runs the pipeline. Docker image for Intel and ARM.

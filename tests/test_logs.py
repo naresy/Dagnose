@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from airflow_doctor.collector.logs import parse_structured, parse_text
+from dagnose.collector.logs import parse_structured, parse_text
 
 
 def test_structured_skips_ui_markers_and_source_header() -> None:

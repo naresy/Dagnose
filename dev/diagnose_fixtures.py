@@ -5,12 +5,12 @@ first, like the worker does) and compares the category with
 dev/dags/demo/expected.json. Tools are off (no live Airflow needed), so this
 measures the diagnosis from the collected context alone.
 
-    export ANTHROPIC_API_KEY=...            # or AIRFLOW_DOCTOR_LLM_API_KEY, or `ant auth login`
+    export ANTHROPIC_API_KEY=...            # or DAGNOSE_LLM_API_KEY, or `ant auth login`
     uv run python dev/diagnose_fixtures.py --yes-spend            # 6 diagnoses, Airflow 3
     uv run python dev/diagnose_fixtures.py --yes-spend --api v1   # Airflow 2 recordings
     uv run python dev/diagnose_fixtures.py --yes-spend --only demo_orders_tax
 
-Each diagnosis is saved to dev/doctor-data/eval/<api>/<dag_id>.json for review.
+Each diagnosis is saved to dev/dagnose-data/eval/<api>/<dag_id>.json for review.
 """
 
 from __future__ import annotations
@@ -20,10 +20,10 @@ import json
 import sys
 from pathlib import Path
 
-from airflow_doctor.agent import DiagnosisError, ProviderError, ToolBox, diagnose, make_provider
-from airflow_doctor.config import Settings
-from airflow_doctor.models import FailureContext
-from airflow_doctor.redactor import Redactor
+from dagnose.agent import DiagnosisError, ProviderError, ToolBox, diagnose, make_provider
+from dagnose.config import Settings
+from dagnose.models import FailureContext
+from dagnose.redactor import Redactor
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPECTED = {
@@ -47,7 +47,7 @@ def main() -> int:
 
     settings = Settings()
     provider = make_provider(settings)
-    out_dir = ROOT / "dev/doctor-data/eval" / args.api
+    out_dir = ROOT / "dev/dagnose-data/eval" / args.api
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = sorted((ROOT / "tests/fixtures/contexts" / args.api).glob("*.json"))
     if args.only:

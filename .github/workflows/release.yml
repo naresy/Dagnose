@@ -1,9 +1,9 @@
 name: release
 
 # Push a tag like v0.1.0 (matching [project].version in pyproject.toml) to release:
-# the package goes to PyPI and the worker image to ghcr.io/<owner>/airflow-doctor.
+# the package goes to PyPI and the worker image to ghcr.io/<owner>/dagnose.
 # One-time setup: add this repository as a "trusted publisher" on PyPI
-# (project airflow-doctor, workflow release.yml, environment pypi). No token needed.
+# (project dagnose, workflow release.yml, environment pypi). No token needed.
 
 on:
   push:
@@ -60,7 +60,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Image name (ghcr needs lower case)
-        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/airflow-doctor" >> "$GITHUB_ENV"
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/dagnose" >> "$GITHUB_ENV"
       - uses: docker/build-push-action@v6
         with:
           context: .

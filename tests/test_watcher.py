@@ -9,10 +9,10 @@ from typing import Any
 import httpx
 import pytest
 
-from airflow_doctor import worker
-from airflow_doctor.collector import AirflowAPIError, AirflowClient
-from airflow_doctor.queue import JobQueue, write_spool_job
-from airflow_doctor.watcher import FLOOR_KEY, WATERMARK_KEY, poll_failures
+from dagnose import worker
+from dagnose.collector import AirflowAPIError, AirflowClient
+from dagnose.queue import JobQueue, write_spool_job
+from dagnose.watcher import FLOOR_KEY, WATERMARK_KEY, poll_failures
 
 NOW = datetime(2026, 11, 23, 12, 0, tzinfo=timezone.utc)
 

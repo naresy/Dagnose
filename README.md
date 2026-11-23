@@ -1,28 +1,28 @@
-# Airflow Doctor
+# Dagnose
 
 [![ci](https://github.com/naresy/airflow_doctor/actions/workflows/ci.yml/badge.svg)](https://github.com/naresy/airflow_doctor/actions/workflows/ci.yml)
 
-Open source AI on-call engineer for Apache Airflow. It diagnoses failed tasks with evidence, suggests fixes as pull requests, and remembers past incidents. Self-hosted, and you bring your own LLM key.
+**The open source AI on-call engineer for Apache Airflow.** *Dagnose* (DAG + diagnose) diagnoses failed tasks with evidence, suggests fixes as pull requests, and remembers past incidents. Self-hosted, and you bring your own LLM key.
 
 ## Why
 
-When an Airflow task fails, engineers lose hours digging through logs, DAG code and run history to find out why. Airflow Doctor does that work for you, inside your own Airflow. Your data never leaves your network.
+When an Airflow task fails, engineers lose hours digging through logs, DAG code and run history to find out why. Dagnose does that work for you, inside your own Airflow. Your data never leaves your network.
 
 ## How it works
 
-1. **Trigger:** two ways to notice a failure, used together by default (`AIRFLOW_DOCTOR_WATCH=both`, duplicates are dropped):
+1. **Trigger:** two ways to notice a failure, used together by default (`DAGNOSE_WATCH=both`, duplicates are dropped):
    - **API polling** (`api`): the worker asks the Airflow REST API every 30 seconds for tasks that failed since the last check. No plugin and no shared folder, so it works with Kubernetes and Celery workers, managed Airflow (MWAA, Cloud Composer, Astronomer), and tasks killed from outside (out of memory, lost worker).
-   - **Listener plugin** (`plugin`): instant. An Airflow plugin listener (`on_task_instance_failed`) writes a tiny job file (`dag_id`, `run_id`, `task_id`, `try_number`) into a spool folder with an atomic rename, and returns. No locks, so many task processes can fail at once safely, even over Docker bind mounts or NFS. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Doctor.
-2. **Collect:** a separate `airflow-doctor worker` process moves spool files into its own SQLite queue (only the worker touches it), then reads everything through the Airflow REST API (`/api/v2` on 3.x, `/api/v1` on 2.x). It gathers the log tail, the exception and stack trace, the DAG source, task params, the last N runs, and recent git commits that touched the DAG.
+   - **Listener plugin** (`plugin`): instant. An Airflow plugin listener (`on_task_instance_failed`) writes a tiny job file (`dag_id`, `run_id`, `task_id`, `try_number`) into a spool folder with an atomic rename, and returns. No locks, so many task processes can fail at once safely, even over Docker bind mounts or NFS. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Dagnose.
+2. **Collect:** a separate `dagnose worker` process moves spool files into its own SQLite queue (only the worker touches it), then reads everything through the Airflow REST API (`/api/v2` on 3.x, `/api/v1` on 2.x). It gathers the log tail, the exception and stack trace, the DAG source, task params, the last N runs, and recent git commits that touched the DAG.
 3. **Redact:** it replaces secrets with placeholders like `[REDACTED:password#1]` before anything reaches a model or disk: passwords in connection strings, `password=`/`token=`/`api_key=` values, known token formats (AWS, GitHub, Slack, Stripe, Google, OpenAI, Anthropic, JWT, private keys), emails, unlabelled high-entropy keys, sensitive task params and git author names. The same value always gets the same placeholder, so the model can still see that one secret appears in two places. Redaction is one-way: originals are never stored.
 4. **Recall:** it searches local incident memory for similar past failures, using an error fingerprint plus embeddings.
 5. **Diagnose:** an LLM gets the redacted context with numbered log and DAG source lines, plus read-only tools (`list_run_tasks`, `get_task_log` for upstream tasks or the last successful run; `get_table_schema` and `search_past_incidents` come later). It returns structured JSON: summary, category, root cause, evidence quotes, confidence, fix and an optional patch. Every evidence quote is checked against the context, and confidence is capped when the evidence does not check out. Tool results are redacted with the same placeholders before the model sees them.
 6. **Fix:** if a code fix applies, it opens a pull request through the GitHub or GitLab API. It never touches production.
-7. **Notify:** it posts a Slack and/or email card with the diagnosis, checked evidence (✅ found in the logs / ❔ not found), the suggested fix and an "Open in Airflow" link. Cards carry only redacted text and short quotes, never raw logs, and are redacted once more before sending. Without a diagnosis the card still shows the error, where it failed and why it was not diagnosed. Failed deliveries go to an outbox (`airflow-doctor outbox --resend`) instead of re-running the pipeline. PR links and correct / wrong / retry buttons come with steps 5 and 6.
+7. **Notify:** it posts a Slack and/or email card with the diagnosis, checked evidence (✅ found in the logs / ❔ not found), the suggested fix and an "Open in Airflow" link. Cards carry only redacted text and short quotes, never raw logs, and are redacted once more before sending. Without a diagnosis the card still shows the error, where it failed and why it was not diagnosed. Failed deliveries go to an outbox (`dagnose outbox --resend`) instead of re-running the pipeline. PR links and correct / wrong / retry buttons come with steps 5 and 6.
 8. **Learn:** feedback and final fixes are saved to memory, so later diagnoses improve.
 
 ```
-Airflow (scheduler / task process)          airflow-doctor worker (separate process)
+Airflow (scheduler / task process)          dagnose worker (separate process)
 ┌────────────────────────────┐  job (tiny)  ┌───────────────────────────────────────────┐
 │ listener: task failed      │ ───────────► │ collector ──► redactor ──► memory (recall) │
 │ → spool file, return,      │ spool folder │      ──► agent (LLM + read-only tools)    │
@@ -47,7 +47,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 | `agent` | Diagnosis loop, read-only tools, evidence check; provider interface with an Anthropic adapter |
 | `fixer` | Branch and PR creation (GitHub / GitLab) |
 | `notifier` | Slack (Block Kit, incoming webhook) and email (SMTP) cards, retries, outbox |
-| `cli` | `airflow-doctor` commands: check, worker, queue, collect, redact, diagnose, notify, outbox |
+| `cli` | `dagnose` commands: check, worker, queue, collect, redact, diagnose, notify, outbox |
 
 ## Tech stack
 
@@ -62,20 +62,20 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 
 ## Install
 
-**Adding Airflow Doctor to your own Airflow project: follow [docs/install.md](docs/install.md)** (one extra container, a read-only Airflow login, about 10 minutes).
+**Adding Dagnose to your own Airflow project: follow [docs/install.md](docs/install.md)** (one extra container, a read-only Airflow login, about 10 minutes).
 
 From source / for development:
 
 ```bash
-pip install airflow-doctor
-export AIRFLOW_DOCTOR_LLM_MODEL="claude-opus-5-5"   # default; other providers planned
-export AIRFLOW_DOCTOR_LLM_API_KEY="..."               # or ANTHROPIC_API_KEY, or `ant auth login`
-export AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+pip install dagnose
+export DAGNOSE_LLM_MODEL="claude-opus-5-5"   # default; other providers planned
+export DAGNOSE_LLM_API_KEY="..."               # or ANTHROPIC_API_KEY, or `ant auth login`
+export DAGNOSE_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 # and/or email:
-# export AIRFLOW_DOCTOR_SMTP_HOST=smtp.example.com AIRFLOW_DOCTOR_EMAIL_FROM=doctor@example.com
-# export AIRFLOW_DOCTOR_EMAIL_TO='["oncall@example.com"]'   # JSON list; also SMTP_PORT/_USERNAME/_PASSWORD/_SECURITY
-airflow-doctor check        # verifies Airflow, login, how failures are found, LLM key (free), Slack, email
-airflow-doctor worker       # runs the pipeline; leave it running
+# export DAGNOSE_SMTP_HOST=smtp.example.com DAGNOSE_EMAIL_FROM=dagnose@example.com
+# export DAGNOSE_EMAIL_TO='["oncall@example.com"]'   # JSON list; also SMTP_PORT/_USERNAME/_PASSWORD/_SECURITY
+dagnose check        # verifies Airflow, login, how failures are found, LLM key (free), Slack, email
+dagnose worker       # runs the pipeline; leave it running
 ```
 
 Keep keys out of git: `.env` is git-ignored, CI fails if a real-looking key (Anthropic, OpenAI, AWS, GitHub, Slack, Stripe, private key) is in the repo (`dev/scan_secrets.py`), and `./dev/install_hooks.sh` adds a pre-commit hook that blocks such commits locally.
@@ -83,19 +83,19 @@ Keep keys out of git: `.env` is git-ignored, CI fails if a real-looking key (Ant
 Or run the worker as a container (images for Intel and ARM; published with each release):
 
 ```bash
-docker run --rm --env-file .env ghcr.io/naresy/airflow-doctor:latest check
-docker run -d --name airflow-doctor --env-file .env -v airflow-doctor-data:/data \
-  ghcr.io/naresy/airflow-doctor:latest
+docker run --rm --env-file .env ghcr.io/naresy/dagnose:latest check
+docker run -d --name dagnose --env-file .env -v dagnose-data:/data \
+  ghcr.io/naresy/dagnose:latest
 ```
 
-With `AIRFLOW_DOCTOR_WATCH=api` the container needs nothing from your Airflow setup except a read-only login: no plugin, no shared folder.
+With `DAGNOSE_WATCH=api` the container needs nothing from your Airflow setup except a read-only login: no plugin, no shared folder.
 
-Settings can also go in a `.env` file in the directory you run `airflow-doctor` from (git-ignored; real environment variables win over it):
+Settings can also go in a `.env` file in the directory you run `dagnose` from (git-ignored; real environment variables win over it):
 
 ```bash
 # .env
-AIRFLOW_DOCTOR_LLM_API_KEY=sk-ant-...
-AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+DAGNOSE_LLM_API_KEY=sk-ant-...
+DAGNOSE_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
 ## Development
@@ -107,23 +107,23 @@ uv run ruff check . && uv run mypy && uv run pytest
 cd dev && docker compose up -d            # local Airflow 3.3 at http://localhost:8080 (airflow / airflow)
 ```
 
-The dev stack mounts `src/` into Airflow and loads the listener from `dev/plugins/`. Failed tasks land in `dev/doctor-data/spool/`.
+The dev stack mounts `src/` into Airflow and loads the listener from `dev/plugins/`. Failed tasks land in `dev/dagnose-data/spool/`.
 
 `dev/dags/demo/` holds deliberately broken DAGs, written like ordinary pipelines so their names and comments do not give the cause away (what each one does wrong is in [its README](dev/dags/demo/README.md)). One leaks fake credentials to test redaction. Trigger them from the UI or REST API to produce real failures, then:
 
 ```bash
-export AIRFLOW_DOCTOR_HOME=dev/doctor-data
-export AIRFLOW_DOCTOR_AIRFLOW_USERNAME=airflow AIRFLOW_DOCTOR_AIRFLOW_PASSWORD=airflow
-export AIRFLOW_DOCTOR_GIT_REPO_PATH=$PWD AIRFLOW_DOCTOR_GIT_DAGS_SUBDIR=dev/dags   # optional
+export DAGNOSE_HOME=dev/dagnose-data
+export DAGNOSE_AIRFLOW_USERNAME=airflow DAGNOSE_AIRFLOW_PASSWORD=airflow
+export DAGNOSE_GIT_REPO_PATH=$PWD DAGNOSE_GIT_DAGS_SUBDIR=dev/dags   # optional
 
-uv run airflow-doctor worker --once       # spool -> queue -> collect -> dev/doctor-data/contexts/*.json
-uv run airflow-doctor queue               # job counts by status
-uv run airflow-doctor collect <dag_id> <run_id> <task_id>   # one failure, redacted JSON to stdout (--raw: unredacted)
-uv run airflow-doctor redact <context.json>                 # redact a saved context, summary on stderr
-uv run airflow-doctor diagnose <context.json>               # diagnose a saved context (calls the model API)
+uv run dagnose worker --once       # spool -> queue -> collect -> dev/dagnose-data/contexts/*.json
+uv run dagnose queue               # job counts by status
+uv run dagnose collect <dag_id> <run_id> <task_id>   # one failure, redacted JSON to stdout (--raw: unredacted)
+uv run dagnose redact <context.json>                 # redact a saved context, summary on stderr
+uv run dagnose diagnose <context.json>               # diagnose a saved context (calls the model API)
 uv run python dev/diagnose_fixtures.py --yes-spend          # score the model on the 6 recorded failures (paid)
-uv run airflow-doctor notify <context.json> --dry-run       # preview the Slack and email card
-uv run airflow-doctor outbox [--resend]                     # notifications that could not be delivered
+uv run dagnose notify <context.json> --dry-run       # preview the Slack and email card
+uv run dagnose outbox [--resend]                     # notifications that could not be delivered
 uv run python dev/record_fixtures.py      # refresh recorded API traffic + contexts in tests/fixtures/
 ```
 
@@ -136,9 +136,9 @@ Airflow support: 3.x first, 2.x kept working through the v1 REST API. Both are t
 ```bash
 cd dev/airflow2 && docker compose up -d   # Airflow 2.11 at http://localhost:8081 (airflow / airflow)
 
-export AIRFLOW_DOCTOR_HOME=dev/airflow2/doctor-data AIRFLOW_DOCTOR_AIRFLOW_URL=http://localhost:8081
-uv run airflow-doctor worker --once       # same commands as above
-AIRFLOW_DOCTOR_AIRFLOW_URL=http://localhost:8081 uv run python dev/record_fixtures.py   # v1 fixtures
+export DAGNOSE_HOME=dev/airflow2/dagnose-data DAGNOSE_AIRFLOW_URL=http://localhost:8081
+uv run dagnose worker --once       # same commands as above
+DAGNOSE_AIRFLOW_URL=http://localhost:8081 uv run python dev/record_fixtures.py   # v1 fixtures
 ```
 
 ### CI/CD
@@ -181,7 +181,7 @@ We build one piece at a time, and each piece is tested before the next one start
 
 Before launch, making it installable by other teams (in progress):
 - [x] API polling mode: no plugin, no shared folder (Kubernetes, Celery, managed Airflow)
-- [x] `airflow-doctor check`: verify the Airflow, LLM and Slack setup (`--send-test` posts a test message)
+- [x] `dagnose check`: verify the Airflow, LLM and Slack setup (`--send-test` posts a test message)
 - [x] Worker Docker image (CI-tested; published to ghcr.io on release) and the first release prepared (v0.1.0)
 - [x] Install guide ([docs/install.md](docs/install.md)), tested by installing into a separate Airflow 3 project with a read-only Viewer user
 
@@ -194,4 +194,8 @@ Before launch, making it installable by other teams (in progress):
 
 ## License
 
-Apache 2.0 (planned)
+Apache 2.0, see [LICENSE](LICENSE). Changes: [CHANGELOG.md](CHANGELOG.md). Security issues: [SECURITY.md](SECURITY.md).
+
+---
+
+Apache Airflow, Airflow and the Airflow logo are trademarks of the Apache Software Foundation. Dagnose is an independent project, not affiliated with or endorsed by the Apache Software Foundation.

@@ -43,14 +43,14 @@ def recordings(api: str) -> list[Path]:
 
 @pytest.fixture
 def make_settings(tmp_path: Path) -> Any:
-    from airflow_doctor.config import Settings
+    from dagnose.config import Settings
 
     def factory(**overrides: Any) -> Settings:
         values: dict[str, Any] = {
             "airflow_url": "http://airflow.test",
             "airflow_username": "airflow",
             "airflow_password": "airflow",
-            "home": tmp_path / "doctor-home",
+            "home": tmp_path / "dagnose-home",
             # Never call a real model from tests (a dev machine may have a key set).
             "diagnose": False,
             # Worker tests replay recorded traffic; polling has its own tests.

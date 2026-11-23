@@ -1,4 +1,4 @@
-"""`airflow-doctor check`, against a fake Airflow, a fake model and fake Slack / SMTP."""
+"""`dagnose check`, against a fake Airflow, a fake model and fake Slack / SMTP."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from typing import Any
 import httpx
 import pytest
 
-from airflow_doctor.agent import ProviderConfigError
-from airflow_doctor.check import Result, run_checks
+from dagnose.agent import ProviderConfigError
+from dagnose.check import Result, run_checks
 
 
 class FakeAirflow:
@@ -27,7 +27,7 @@ class FakeAirflow:
     ) -> None:
         self.login_ok, self.plugins, self.api, self.up = (
             login_ok,
-            plugins or ["airflow_doctor"],
+            plugins or ["dagnose"],
             api,
             up,
         )
@@ -104,7 +104,7 @@ def test_all_good(make_settings: Any) -> None:
 
 def test_airflow_unreachable(make_settings: Any) -> None:
     r = results(make_settings, FakeAirflow(up=False))
-    assert r["Airflow API"].status == "fail" and "AIRFLOW_DOCTOR_AIRFLOW_URL" in (
+    assert r["Airflow API"].status == "fail" and "DAGNOSE_AIRFLOW_URL" in (
         r["Airflow API"].fix or ""
     )
     assert r["Airflow login"].status == r["Finding failures"].status == "skip"
@@ -121,7 +121,7 @@ def test_bad_login(api: str, make_settings: Any) -> None:
 def test_plugin_only_without_plugin_fails(make_settings: Any) -> None:
     r = results(make_settings, FakeAirflow(plugins=["other"]), watch="plugin")
     assert r["Finding failures"].status == "fail"
-    assert "AIRFLOW_DOCTOR_WATCH=api" in (r["Finding failures"].fix or "")
+    assert "DAGNOSE_WATCH=api" in (r["Finding failures"].fix or "")
     # The same Airflow is fine when polling is on.
     assert (
         results(make_settings, FakeAirflow(plugins=["other"]), watch="both")[
@@ -134,7 +134,7 @@ def test_plugin_only_without_plugin_fails(make_settings: Any) -> None:
 def test_llm_problems(make_settings: Any) -> None:
     bad = FakeProvider(ProviderConfigError("no Anthropic credentials"))
     r = results(make_settings, FakeAirflow(), bad, diagnose=True)
-    assert r["LLM"].status == "fail" and "AIRFLOW_DOCTOR_DIAGNOSE=false" in (r["LLM"].fix or "")
+    assert r["LLM"].status == "fail" and "DAGNOSE_DIAGNOSE=false" in (r["LLM"].fix or "")
     assert results(make_settings, FakeAirflow(), bad, diagnose=False)["LLM"].status == "skip"
 
 
@@ -182,8 +182,8 @@ def test_email_partly_configured(make_settings: Any) -> None:
 def test_cli_exit_codes(make_settings: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     from typer.testing import CliRunner
 
-    from airflow_doctor import check as check_mod
-    from airflow_doctor.cli import app
+    from dagnose import check as check_mod
+    from dagnose.cli import app
 
     ok = [Result("Airflow API", "ok", "fine"), Result("Slack", "warn", "odd URL", "fix it")]
     monkeypatch.setattr(check_mod, "run_checks", lambda s, **k: iter(ok))
