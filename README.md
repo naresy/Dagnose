@@ -62,6 +62,10 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 
 ## Install
 
+**Adding Airflow Doctor to your own Airflow project: follow [docs/install.md](docs/install.md)** (one extra container, a read-only Airflow login, about 10 minutes).
+
+From source / for development:
+
 ```bash
 pip install airflow-doctor
 export AIRFLOW_DOCTOR_LLM_MODEL="claude-opus-5-5"   # default; other providers planned
@@ -179,7 +183,7 @@ Before launch, making it installable by other teams (in progress):
 - [x] API polling mode: no plugin, no shared folder (Kubernetes, Celery, managed Airflow)
 - [x] `airflow-doctor check`: verify the Airflow, LLM and Slack setup (`--send-test` posts a test message)
 - [x] Worker Docker image (CI-tested; published to ghcr.io on release) and the first release prepared (v0.1.0)
-- [ ] Install guide, tested on a separate Airflow project
+- [x] Install guide ([docs/install.md](docs/install.md)), tested by installing into a separate Airflow 3 project with a read-only Viewer user
 
 
 ## Principles

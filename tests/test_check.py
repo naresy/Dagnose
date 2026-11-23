@@ -22,6 +22,8 @@ class FakeAirflow:
         plugins: list[str] | None = None,
         api: str = "v2",
         up: bool = True,
+        failed: list[dict[str, Any]] | None = None,
+        log: list[dict[str, Any]] | None = None,
     ) -> None:
         self.login_ok, self.plugins, self.api, self.up = (
             login_ok,
@@ -29,6 +31,7 @@ class FakeAirflow:
             api,
             up,
         )
+        self.failed, self.log = failed or [], log or []
         self.slack: list[dict[str, Any]] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -50,7 +53,9 @@ class FakeAirflow:
         if path.endswith("/plugins"):
             return httpx.Response(200, json={"plugins": [{"name": n} for n in self.plugins]})
         if path.endswith("/taskInstances/list"):
-            return httpx.Response(200, json={"task_instances": []})
+            return httpx.Response(200, json={"task_instances": self.failed})
+        if "/logs/" in path:
+            return httpx.Response(200, json={"content": self.log})
         return httpx.Response(200, json={"dags": []})
 
 
@@ -84,6 +89,7 @@ def test_all_good(make_settings: Any) -> None:
         "Airflow API": "ok",
         "Airflow login": "ok",
         "Finding failures": "ok",
+        "Task logs": "skip",  # no recent failure to read
         "Storage": "ok",
         "Git history": "skip",
         "LLM": "ok",
@@ -190,3 +196,33 @@ def test_cli_exit_codes(make_settings: Any, monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(check_mod, "run_checks", lambda s, **k: iter(bad))
     out = CliRunner().invoke(app, ["check"])
     assert out.exit_code == 1 and "1 problem(s) to fix" in out.stdout
+
+
+FAILED_TI = {
+    "dag_id": "sales",
+    "dag_run_id": "r1",
+    "task_id": "load",
+    "try_number": 1,
+    "map_index": -1,
+    "end_date": "2026-11-23T10:00:00Z",
+}
+
+
+def test_task_log_readable(make_settings: Any) -> None:
+    log = [{"event": "Task failed with exception", "level": "error", "logger": "task"}]
+    r = results(make_settings, FakeAirflow(failed=[FAILED_TI], log=log))
+    assert r["Task logs"].status == "ok" and "sales.load" in r["Task logs"].detail
+
+
+def test_task_log_not_served_by_airflow(make_settings: Any) -> None:
+    """Found while testing the install guide: Airflow components without a shared
+    [api] secret_key cannot serve task logs, so diagnoses would miss the error."""
+    log = [
+        {"event": "::group::Log message source details"},
+        {"event": "!!!! Please make sure that all your Airflow components (e.g. schedulers, api-servers) "
+                  "have the same 'secret_key' configured in '[api]' section"},
+        {"event": "::endgroup::"},
+    ]  # fmt: skip
+    r = results(make_settings, FakeAirflow(failed=[FAILED_TI], log=log))
+    assert r["Task logs"].status == "warn"
+    assert "AIRFLOW__API__SECRET_KEY" in (r["Task logs"].fix or "")
