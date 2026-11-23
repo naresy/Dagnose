@@ -53,6 +53,8 @@ def make_settings(tmp_path: Path) -> Any:
             "home": tmp_path / "doctor-home",
             # Never call a real model from tests (a dev machine may have a key set).
             "diagnose": False,
+            # Worker tests replay recorded traffic; polling has its own tests.
+            "watch": "plugin",
         }
         values.update(overrides)
         # Ignore a developer's .env (it may hold a real Slack webhook or API key).

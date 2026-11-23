@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     airflow_dags_folder: str = "/opt/airflow/dags"  # to make 2.x file paths relative
     request_timeout_s: float = 30.0
 
+    # How failures are found. "plugin": the listener plugin writes them to the spool
+    # (needs a folder shared with Airflow). "api": poll Airflow's REST API for failed
+    # tasks (no plugin, works with Kubernetes, Celery and managed Airflow). "both"
+    # (default): both, duplicates are dropped by the queue.
+    watch: Literal["plugin", "api", "both"] = "both"
+    poll_interval_s: float = 30.0
+    poll_lookback_minutes: int = 60  # first poll: how far back to look
+    poll_overlap_s: int = 600  # re-check this much before the last poll (clock skew)
+    watch_dag_ids: list[str] = Field(default_factory=list)  # empty: every DAG
+
     # Collection limits
     log_tail_lines: int = 500
     run_history_limit: int = 10

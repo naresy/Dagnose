@@ -94,11 +94,16 @@ def build_card(
 
     job = ctx.job
     exc = ctx.exception
-    summary = (
-        safe(f"{exc.type}: {exc.message}", 500)
-        if exc
-        else "The task failed; no exception was found in the log."
+    log_problem = next(
+        (e.removeprefix("task log: ") for e in ctx.collection_errors if e.startswith("task log:")),
+        None,
     )
+    if exc:
+        summary = safe(f"{exc.type}: {exc.message}", 500)
+    elif log_problem:
+        summary = safe(f"The task failed, but its log could not be read: {log_problem}", 500)
+    else:
+        summary = "The task failed; no exception was found in the log."
     card = Card(
         dag_id=job.dag_id,
         task_id=job.task_id,

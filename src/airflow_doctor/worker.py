@@ -25,6 +25,7 @@ from airflow_doctor.models import DiagnosisRun, FailureJob, RedactedContext
 from airflow_doctor.notifier import channels_configured, notify
 from airflow_doctor.queue import JobQueue, QueuedJob
 from airflow_doctor.redactor import RedactionSession, Redactor
+from airflow_doctor.watcher import poll_failures
 
 log = logging.getLogger(__name__)
 
@@ -128,9 +129,19 @@ def run(settings: Settings, *, once: bool = False, poll_interval_s: float = 2.0)
     queue = JobQueue(settings.queue_path)
     queue.requeue_stale(STALE_AFTER_S)
     processed = 0
+    use_spool = settings.watch in ("plugin", "both")
+    use_api = settings.watch in ("api", "both")
+    next_poll = 0.0  # poll right away
     with AirflowClient(settings) as client:
         while True:
-            queue.ingest_spool(settings.spool_dir)
+            if use_spool:
+                queue.ingest_spool(settings.spool_dir)
+            if use_api and time.monotonic() >= next_poll:
+                try:
+                    poll_failures(client, queue, settings)
+                except AirflowAPIError as exc:
+                    log.warning("poll: Airflow API not reachable, will retry: %s", exc)
+                next_poll = time.monotonic() + settings.poll_interval_s
             qjob = queue.claim()
             if qjob is None:
                 if once:

@@ -198,6 +198,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--airflow", choices=sorted(TARGETS), required=True)
     parser.add_argument("--timeout", type=float, default=600, help="seconds to wait for Airflow")
+    parser.add_argument(
+        "--watch",
+        choices=["plugin", "api", "both"],
+        default="both",
+        help="how the worker finds failures (api: ignore the plugin's spool, poll only)",
+    )
     args = parser.parse_args()
     target = TARGETS[args.airflow]
     api = str(target["api"])
@@ -206,7 +212,7 @@ def main() -> int:
     wait_for("Airflow to be healthy", airflow.healthy, args.timeout)
     airflow.login()
     wait_for("demo DAGs to be parsed and unpaused", airflow.demo_dags_ready, args.timeout)
-    log(f"Airflow {args.airflow} is up at {target['url']}")
+    log(f"Airflow {args.airflow} is up at {target['url']} (worker watches: {args.watch})")
 
     runs = {dag_id: airflow.trigger(dag_id) for dag_id in EXPECTED}
     log(f"triggered {len(runs)} broken DAGs")
@@ -233,6 +239,8 @@ def main() -> int:
         git_dags_subdir="dev/dags",
         diagnose=False,  # e2e checks collect + redact; never spend model tokens here
         slack_webhook_url=slack.url,
+        watch=args.watch,
+        poll_interval_s=1,  # e2e: poll on every worker pass
     )
 
     def collected() -> dict[str, RedactedContext] | None:

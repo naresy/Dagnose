@@ -7,6 +7,7 @@ not care which Airflow it is talking to. Only GET requests read data; the one PO
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -115,7 +116,8 @@ class AirflowClient:
                 method, url, headers={**extra, **self._auth_headers(refresh=True)}, **kwargs
             )
         if resp.status_code >= 400:
-            raise AirflowAPIError(f"{method} {url} -> HTTP {resp.status_code}: {resp.text[:300]}")
+            detail = " ".join(resp.text.split())[:200]  # one line, even for JSON error bodies
+            raise AirflowAPIError(f"{method} {url} -> HTTP {resp.status_code}: {detail}")
         return resp
 
     def _get(self, path: str, **kwargs: Any) -> dict[str, Any]:
@@ -170,6 +172,35 @@ class AirflowClient:
             raise AirflowAPIError(f"DAG {dag_id} has no file_token")
         resp = self._request("GET", f"/dagSources/{token}", headers={"Accept": "text/plain"})
         return resp.text
+
+    def failed_task_instances(
+        self,
+        since: datetime,
+        dag_ids: list[str] | None = None,
+        *,
+        page_size: int = 100,
+        max_pages: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Task instances in state "failed" that ended at or after `since`, all DAGs
+        (or only `dag_ids`). Same query endpoint on v1 and v2, paged."""
+        body: dict[str, Any] = {
+            "state": ["failed"],
+            "end_date_gte": since.isoformat(),
+            "page_limit": page_size,
+        }
+        if dag_ids:
+            body["dag_ids"] = dag_ids
+        if self.api == "v2":
+            body["order_by"] = "end_date"
+        found: list[dict[str, Any]] = []
+        for page in range(max_pages):
+            body["page_offset"] = page * page_size
+            data = self._request("POST", "/dags/~/dagRuns/~/taskInstances/list", json=body).json()
+            batch: list[dict[str, Any]] = data.get("task_instances", [])
+            found.extend(batch)
+            if len(batch) < page_size:
+                break
+        return found
 
     def run_task_instances(self, dag_id: str, run_id: str) -> list[dict[str, Any]]:
         """All task instances of one DAG run (same path on v1 and v2)."""

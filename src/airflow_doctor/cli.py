@@ -244,6 +244,45 @@ def outbox(
 
 
 @app.command()
+def check(
+    send_test: Annotated[
+        bool, typer.Option("--send-test", help="Also post a test message to Slack / email.")
+    ] = False,
+) -> None:
+    """Check the setup: Airflow API and login, how failures are found, storage, git,
+    LLM key (free check), Slack, email and redaction."""
+    from pydantic import ValidationError
+
+    from airflow_doctor.check import run_checks
+    from airflow_doctor.config import Settings
+
+    try:
+        settings = Settings()
+    except ValidationError as exc:
+        for err in exc.errors():
+            name = "AIRFLOW_DOCTOR_" + str(err["loc"][0]).upper()
+            typer.echo(f"✗ Settings: {name}: {err['msg']}", err=True)
+        raise typer.Exit(1) from exc
+
+    icons = {"ok": "✓", "warn": "!", "fail": "✗", "skip": "–"}
+    failed = warned = 0
+    typer.echo("Airflow Doctor check")
+    for r in run_checks(settings, send_test=send_test):
+        typer.echo(f"  {icons[r.status]} {r.name:17} {r.detail}")
+        if r.fix and r.status in ("fail", "warn"):
+            typer.echo(f"      → {r.fix}")
+        failed += r.status == "fail"
+        warned += r.status == "warn"
+    if failed:
+        typer.echo(f"\n{failed} problem(s) to fix.")
+        raise typer.Exit(1)
+    typer.echo(
+        "\nAll good" + (f" ({warned} warning(s))" if warned else "") + ". Start the worker: "
+        "airflow-doctor worker"
+    )
+
+
+@app.command()
 def worker(
     once: Annotated[bool, typer.Option(help="Exit when the queue is empty.")] = False,
 ) -> None:
@@ -252,7 +291,11 @@ def worker(
     from airflow_doctor.config import Settings
 
     settings = Settings()
-    typer.echo(f"queue: {settings.queue_path}\ncontexts: {settings.contexts_dir}", err=True)
+    typer.echo(
+        f"watching: {settings.watch} (poll every {settings.poll_interval_s:.0f}s)\n"
+        f"queue: {settings.queue_path}\ncontexts: {settings.contexts_dir}",
+        err=True,
+    )
     n = worker_mod.run(settings, once=once)
     typer.echo(f"processed {n} job(s)", err=True)
 

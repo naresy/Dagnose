@@ -74,3 +74,7 @@ class LLMProvider(Protocol):
         tools: Sequence[ToolSpec],
         output_schema: dict[str, Any],
     ) -> ChatSession: ...
+
+    def verify(self) -> int:
+        """Check credentials and model without spending tokens where possible."""
+        ...

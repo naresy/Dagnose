@@ -28,6 +28,32 @@ def parse_log(raw: list[dict[str, Any]] | str) -> ParsedLog:
     return parse_text(raw) if isinstance(raw, str) else parse_structured(raw)
 
 
+# Messages Airflow returns *instead of* a task log when it cannot read one. Seeing one
+# means the problem is Airflow's logging setup, not the task, and the real log (and its
+# exception) is missing.
+_LOG_UNAVAILABLE = (
+    (
+        "have the same 'secret_key' configured",
+        "Airflow components do not share the same [api] secret_key, so the API server "
+        "could not fetch the log from the worker (set AIRFLOW__API__SECRET_KEY to the "
+        "same value everywhere, or share the logs folder / use remote logging)",
+    ),
+    ("Could not read served logs", "the worker's log server could not be reached"),
+    ("Could not read remote logs", "Airflow could not read the remote log storage"),
+    ("Log file does not exist", "the log file does not exist (worker gone and no remote logging?)"),
+    ("Log file isn't local", "the log is on a worker that is no longer reachable"),
+)
+
+
+def log_unavailable_reason(raw: list[dict[str, Any]] | str) -> str | None:
+    """Why Airflow could not serve this task log, or None if the log looks real."""
+    text = raw if isinstance(raw, str) else "\n".join(str(e.get("event", "")) for e in raw)
+    for marker, reason in _LOG_UNAVAILABLE:
+        if marker in text:
+            return reason
+    return None
+
+
 # ---- Airflow 3: structured events ---------------------------------------------------
 
 

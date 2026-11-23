@@ -10,7 +10,9 @@ When an Airflow task fails, engineers lose hours digging through logs, DAG code 
 
 ## How it works
 
-1. **Trigger:** an Airflow plugin listener (`on_task_instance_failed`) writes a tiny job file (`dag_id`, `run_id`, `task_id`, `try_number`) into a spool folder with an atomic rename, and returns. No locks, so many task processes can fail at once safely, even over Docker bind mounts or NFS. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Doctor.
+1. **Trigger:** two ways to notice a failure, used together by default (`AIRFLOW_DOCTOR_WATCH=both`, duplicates are dropped):
+   - **API polling** (`api`): the worker asks the Airflow REST API every 30 seconds for tasks that failed since the last check. No plugin and no shared folder, so it works with Kubernetes and Celery workers, managed Airflow (MWAA, Cloud Composer, Astronomer), and tasks killed from outside (out of memory, lost worker).
+   - **Listener plugin** (`plugin`): instant. An Airflow plugin listener (`on_task_instance_failed`) writes a tiny job file (`dag_id`, `run_id`, `task_id`, `try_number`) into a spool folder with an atomic rename, and returns. No locks, so many task processes can fail at once safely, even over Docker bind mounts or NFS. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Doctor.
 2. **Collect:** a separate `airflow-doctor worker` process moves spool files into its own SQLite queue (only the worker touches it), then reads everything through the Airflow REST API (`/api/v2` on 3.x, `/api/v1` on 2.x). It gathers the log tail, the exception and stack trace, the DAG source, task params, the last N runs, and recent git commits that touched the DAG.
 3. **Redact:** it replaces secrets with placeholders like `[REDACTED:password#1]` before anything reaches a model or disk: passwords in connection strings, `password=`/`token=`/`api_key=` values, known token formats (AWS, GitHub, Slack, Stripe, Google, OpenAI, Anthropic, JWT, private keys), emails, unlabelled high-entropy keys, sensitive task params and git author names. The same value always gets the same placeholder, so the model can still see that one secret appears in two places. Redaction is one-way: originals are never stored.
 4. **Recall:** it searches local incident memory for similar past failures, using an error fingerprint plus embeddings.
@@ -45,7 +47,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 | `agent` | Diagnosis loop, read-only tools, evidence check; provider interface with an Anthropic adapter |
 | `fixer` | Branch and PR creation (GitHub / GitLab) |
 | `notifier` | Slack (Block Kit, incoming webhook) and email (SMTP) cards, retries, outbox |
-| `cli` | `airflow-doctor` commands: setup, test, replay a failure |
+| `cli` | `airflow-doctor` commands: check, worker, queue, collect, redact, diagnose, notify, outbox |
 
 ## Tech stack
 
@@ -58,7 +60,11 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 - **Quality:** pytest, ruff, mypy, GitHub Actions
 - **Eval:** Docker Compose with a local Airflow and deliberately broken DAGs (30+ real failure cases)
 
-## Install (planned)
+## Install
+
+**Adding Airflow Doctor to your own Airflow project: follow [docs/install.md](docs/install.md)** (one extra container, a read-only Airflow login, about 10 minutes).
+
+From source / for development:
 
 ```bash
 pip install airflow-doctor
@@ -68,10 +74,21 @@ export AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 # and/or email:
 # export AIRFLOW_DOCTOR_SMTP_HOST=smtp.example.com AIRFLOW_DOCTOR_EMAIL_FROM=doctor@example.com
 # export AIRFLOW_DOCTOR_EMAIL_TO='["oncall@example.com"]'   # JSON list; also SMTP_PORT/_USERNAME/_PASSWORD/_SECURITY
-airflow-doctor setup
+airflow-doctor check        # verifies Airflow, login, how failures are found, LLM key (free), Slack, email
+airflow-doctor worker       # runs the pipeline; leave it running
 ```
 
 Keep keys out of git: `.env` is git-ignored, CI fails if a real-looking key (Anthropic, OpenAI, AWS, GitHub, Slack, Stripe, private key) is in the repo (`dev/scan_secrets.py`), and `./dev/install_hooks.sh` adds a pre-commit hook that blocks such commits locally.
+
+Or run the worker as a container (images for Intel and ARM; published with each release):
+
+```bash
+docker run --rm --env-file .env ghcr.io/naresy/airflow-doctor:latest check
+docker run -d --name airflow-doctor --env-file .env -v airflow-doctor-data:/data \
+  ghcr.io/naresy/airflow-doctor:latest
+```
+
+With `AIRFLOW_DOCTOR_WATCH=api` the container needs nothing from your Airflow setup except a read-only login: no plugin, no shared folder.
 
 Settings can also go in a `.env` file in the directory you run `airflow-doctor` from (git-ignored; real environment variables win over it):
 
@@ -162,7 +179,11 @@ We build one piece at a time, and each piece is tested before the next one start
 - [ ] **7. Eval set:** 30 failure cases, accuracy tracking
 - [ ] **8. Launch:** docs, 60-second demo video, Hacker News, r/dataengineering, Airflow Slack, LinkedIn
 
-Planned before launch: a mode that needs no plugin (the worker polls the Airflow API for failed tasks). It is needed for Kubernetes/Celery workers, managed Airflow (MWAA, Composer), and tasks killed for running out of memory.
+Before launch, making it installable by other teams (in progress):
+- [x] API polling mode: no plugin, no shared folder (Kubernetes, Celery, managed Airflow)
+- [x] `airflow-doctor check`: verify the Airflow, LLM and Slack setup (`--send-test` posts a test message)
+- [x] Worker Docker image (CI-tested; published to ghcr.io on release) and the first release prepared (v0.1.0)
+- [x] Install guide ([docs/install.md](docs/install.md)), tested by installing into a separate Airflow 3 project with a read-only Viewer user
 
 
 ## Principles

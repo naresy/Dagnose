@@ -78,8 +78,10 @@ jobs:
       - name: Start Airflow ${{ matrix.airflow }}
         working-directory: ${{ matrix.compose-dir }}
         run: docker compose up -d
-      - name: Fail the broken DAGs, then check listener -> worker -> collector
+      - name: Fail the demo DAGs, then check listener -> worker -> collector
         run: uv run python dev/e2e.py --airflow ${{ matrix.airflow }} --timeout 900
+      - name: Same with API polling only (no plugin, no shared folder)
+        run: uv run python dev/e2e.py --airflow ${{ matrix.airflow }} --timeout 900 --watch api
       - name: Airflow logs
         if: failure()
         working-directory: ${{ matrix.compose-dir }}
@@ -120,3 +122,10 @@ jobs:
         with:
           name: dist
           path: dist/
+      - name: Build the worker image and smoke test it
+        run: |
+          docker build -t airflow-doctor:ci .
+          expected=$(uv run --no-project python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          test "$(docker run --rm airflow-doctor:ci version)" = "$expected"
+          test "$(docker run --rm --entrypoint id airflow-doctor:ci -un)" = "doctor"
+          docker run --rm airflow-doctor:ci --help > /dev/null
