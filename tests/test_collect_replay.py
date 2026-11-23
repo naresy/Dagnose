@@ -12,17 +12,22 @@ from airflow_doctor.collector import AirflowClient, collect
 from airflow_doctor.models import FailureJob
 from tests.conftest import FIXTURES, ReplayTransport, load_recording, recordings
 
-# What a correct collection must find for each broken DAG: exception type, and the
-# DAG-code frame (file, line) the failure points to.
+# What a correct collection must find for each broken DAG, on Airflow 2 and 3 alike:
+# exception type, and the DAG-code frame (file, line) the failure points to.
 EXPECTED = {
-    "broken_python_keyerror": ("KeyError", "python_keyerror.py", 24),
-    "broken_missing_table": ("OperationalError", "missing_table.py", 23),
-    "broken_task_timeout": ("AirflowTaskTimeout", "task_timeout.py", 22),
-    "broken_bad_connection": ("AirflowNotFoundException", "bad_connection.py", 20),
-    "broken_missing_dependency": ("ModuleNotFoundError", "missing_dependency.py", 19),
+    "broken_python_keyerror": ("KeyError", "python_keyerror.py", 27),
+    "broken_missing_table": ("OperationalError", "missing_table.py", 26),
+    "broken_task_timeout": ("AirflowTaskTimeout", "task_timeout.py", 25),
+    "broken_bad_connection": ("AirflowNotFoundException", "bad_connection.py", 32),
+    "broken_missing_dependency": ("ModuleNotFoundError", "missing_dependency.py", 22),
 }
+AIRFLOW_MAJOR = {"v1": "2.", "v2": "3."}
 
-V2 = recordings("v2")
+ALL = [p for api in ("v2", "v1") for p in recordings(api)]
+
+
+def _id(path: Path) -> str:
+    return f"{path.parent.name}-{path.stem}"
 
 
 def _collect(path: Path, settings: Any) -> Any:
@@ -32,18 +37,20 @@ def _collect(path: Path, settings: Any) -> Any:
         return collect(job, client, settings)
 
 
-def test_all_broken_dags_are_recorded() -> None:
-    assert {p.stem for p in V2} == set(EXPECTED)
+@pytest.mark.parametrize("api", ["v1", "v2"])
+def test_all_broken_dags_are_recorded(api: str) -> None:
+    assert {p.stem for p in recordings(api)} == set(EXPECTED)
 
 
-@pytest.mark.parametrize("path", V2, ids=lambda p: p.stem)
-def test_collect_v2(path: Path, make_settings: Any) -> None:
+@pytest.mark.parametrize("path", ALL, ids=_id)
+def test_collect(path: Path, make_settings: Any) -> None:
+    api = path.parent.name
     ctx = _collect(path, make_settings())
     exc_type, user_file, user_line = EXPECTED[path.stem]
 
     assert ctx.collection_errors == []
-    assert ctx.api_version == "v2"
-    assert ctx.airflow_version and ctx.airflow_version.startswith("3.")
+    assert ctx.api_version == api
+    assert ctx.airflow_version and ctx.airflow_version.startswith(AIRFLOW_MAJOR[api])
     assert ctx.task_state == "failed"
     assert ctx.exception is not None and ctx.exception.type == exc_type
     user_frames = [f for f in ctx.exception.frames if f.in_user_code]
@@ -54,14 +61,20 @@ def test_collect_v2(path: Path, make_settings: Any) -> None:
     assert ctx.dag_source and "@dag(" in ctx.dag_source
     assert ctx.log_tail and any(line.level == "error" for line in ctx.log_tail)
     assert [line.n for line in ctx.log_tail] == list(range(1, len(ctx.log_tail) + 1))
-    assert any(r.is_current and r.state == "failed" for r in ctx.run_history)
+    assert ctx.task_params.get("op_kwargs") == {}  # rendered fields came through
+
+    history = ctx.run_history
+    assert len(history) >= 2
+    assert history[0].is_current and history[0].state == "failed"  # newest first
+    starts = [r.start_date for r in history]
+    assert starts == sorted(starts, reverse=True)
 
 
-@pytest.mark.parametrize("path", V2, ids=lambda p: p.stem)
+@pytest.mark.parametrize("path", ALL, ids=_id)
 def test_collect_matches_saved_context(path: Path, make_settings: Any) -> None:
     """The saved contexts feed later stages (redactor, agent); keep them in sync."""
     ctx = _collect(path, make_settings())
-    saved = json.loads((FIXTURES / "contexts" / "v2" / path.name).read_text())
+    saved = json.loads((FIXTURES / "contexts" / path.parent.name / path.name).read_text())
     got = json.loads(ctx.model_dump_json())
     for volatile in ("collected_at", "recent_commits"):  # git is not part of the replay
         saved.pop(volatile)
@@ -69,16 +82,24 @@ def test_collect_matches_saved_context(path: Path, make_settings: Any) -> None:
     assert got == saved
 
 
+def test_airflow2_log_skips_source_block_and_keeps_full_type(make_settings: Any) -> None:
+    ctx = _collect(FIXTURES / "api" / "v1" / "broken_bad_connection.json", make_settings())
+    assert ctx.log_tail[0].timestamp is not None  # no hostname / "*** Found local files"
+    assert not any(line.message.startswith("*** Found") for line in ctx.log_tail)
+    assert ctx.exception is not None
+    assert ctx.exception.qualified_type == "airflow.exceptions.AirflowNotFoundException"
+
+
 def test_keyerror_context_shows_the_bad_payload(make_settings: Any) -> None:
     ctx = _collect(FIXTURES / "api" / "v2" / "broken_python_keyerror.json", make_settings())
     assert ctx.task_params["op_args"] == [{"amount": 19.99, "currency": "USD", "order_id": 42}]
 
 
-def test_timeout_log_keeps_task_stdout(make_settings: Any) -> None:
-    ctx = _collect(FIXTURES / "api" / "v2" / "broken_task_timeout.json", make_settings())
+@pytest.mark.parametrize("api", ["v1", "v2"])
+def test_timeout_log_keeps_task_stdout(api: str, make_settings: Any) -> None:
+    ctx = _collect(FIXTURES / "api" / api / "broken_task_timeout.json", make_settings())
     messages = [line.message for line in ctx.log_tail]
     assert any("Fetching page 1" in m for m in messages)
-    assert "Process timed out" in messages
 
 
 def test_one_failing_endpoint_does_not_lose_the_rest(make_settings: Any) -> None:

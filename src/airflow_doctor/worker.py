@@ -17,6 +17,12 @@ log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3
 STALE_AFTER_S = 15 * 60
+RETRY_BASE_S = 30.0
+
+
+def retry_delay_s(attempts: int) -> float:
+    """Backoff before the next try when Airflow is unreachable: 30s, 60s, 120s, ..."""
+    return float(RETRY_BASE_S * 2 ** max(attempts - 1, 0))
 
 
 def context_filename(job: FailureJob) -> str:
@@ -50,7 +56,8 @@ def process(qjob: QueuedJob, client: AirflowClient, settings: Settings) -> Path:
 
 
 def run(settings: Settings, *, once: bool = False, poll_interval_s: float = 2.0) -> int:
-    """Process jobs until stopped (or until the queue is empty with once=True).
+    """Process jobs until stopped (with once=True: until no job is due; jobs waiting
+    for a retry stay queued for the next run).
     Returns the number of jobs processed."""
     queue = JobQueue(settings.queue_path)
     queue.requeue_stale(STALE_AFTER_S)
@@ -68,10 +75,9 @@ def run(settings: Settings, *, once: bool = False, poll_interval_s: float = 2.0)
                 path = process(qjob, client, settings)
             except AirflowAPIError as exc:  # Airflow unreachable / auth: worth retrying
                 retry = qjob.attempts < MAX_ATTEMPTS
-                queue.mark_error(qjob.id, str(exc), retry=retry)
-                log.warning("job %s failed (retry=%s): %s", qjob.id, retry, exc)
-                if retry and not once:
-                    time.sleep(poll_interval_s)
+                delay = retry_delay_s(qjob.attempts)
+                queue.mark_error(qjob.id, str(exc), retry=retry, retry_after_s=delay)
+                log.warning("job %s failed (retry=%s, in %ss): %s", qjob.id, retry, delay, exc)
             except Exception as exc:
                 queue.mark_error(qjob.id, f"{type(exc).__name__}: {exc}", retry=False)
                 log.exception("job %s failed", qjob.id)

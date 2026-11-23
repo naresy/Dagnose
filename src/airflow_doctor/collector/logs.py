@@ -64,8 +64,11 @@ def _exc_from_detail(detail: dict[str, Any]) -> ExceptionInfo:
         StackFrame(filename=str(f.get("filename", "?")), lineno=f.get("lineno"), name=f.get("name"))
         for f in detail.get("frames") or []
     ]
+    full = str(detail.get("exc_type", "Exception"))
+    short = full.rsplit(".", 1)[-1]
     return ExceptionInfo(
-        type=str(detail.get("exc_type", "Exception")),
+        type=short,
+        qualified_type=full if full != short else None,
         message=str(detail.get("exc_value", "")),
         frames=frames,
         notes=[str(n) for n in detail.get("exc_notes") or []],
@@ -91,7 +94,7 @@ def parse_text(text: str) -> ParsedLog:
     out = ParsedLog()
     level: str | None = None
     logger: str | None = None
-    for raw_line in text.splitlines():
+    for raw_line in _drop_log_source_block(text.splitlines()):
         if not raw_line.strip():
             continue
         m = _HEADER.match(raw_line)
@@ -107,6 +110,17 @@ def parse_text(text: str) -> ParsedLog:
         )
     out.exceptions = _last_traceback_chain([line.message for line in out.lines])
     return out
+
+
+def _drop_log_source_block(lines: list[str]) -> list[str]:
+    """Airflow 2.x starts served logs with a hostname line and a "Log message source
+    details" group listing the files it read. That says nothing about the failure."""
+    head = lines[:5]
+    start = next((i for i, line in enumerate(head) if "::group::Log message source" in line), None)
+    if start is None:
+        return lines
+    end = next((i for i in range(start, len(lines)) if "::endgroup::" in lines[i]), None)
+    return lines if end is None else lines[end + 1 :]
 
 
 def _last_traceback_chain(lines: list[str]) -> list[ExceptionInfo]:
@@ -150,6 +164,14 @@ def _parse_one_traceback(lines: list[str], i: int) -> tuple[ExceptionInfo | None
             continue
         exc = _EXC_LINE.match(line.strip())
         if exc:
-            return ExceptionInfo(type=exc["type"], message=exc["msg"] or "", frames=frames), i + 1
+            full = exc["type"]
+            short = full.rsplit(".", 1)[-1]
+            info = ExceptionInfo(
+                type=short,
+                qualified_type=full if full != short else None,
+                message=exc["msg"] or "",
+                frames=frames,
+            )
+            return info, i + 1
         return None, i
     return None, i
