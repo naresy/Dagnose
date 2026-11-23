@@ -1,0 +1,181 @@
+{
+  "job": {
+    "dag_id": "demo_crm_session_sync",
+    "run_id": "manual__2026-11-23T16:53:40.928773+00:00",
+    "task_id": "sync_crm",
+    "try_number": 1,
+    "map_index": -1,
+    "failed_at": null
+  },
+  "airflow_version": "3.3.2",
+  "api_version": "v2",
+  "task_state": "failed",
+  "operator": "_PythonDecoratedOperator",
+  "hostname": "9a8bbeb22b0e",
+  "duration_s": 0.139629,
+  "task_params": {
+    "templates_dict": null,
+    "op_args": [],
+    "op_kwargs": {
+      "crm_api_key": "***",
+      "region": "eu-west-1"
+    }
+  },
+  "run_conf": {},
+  "exceptions": [
+    {
+      "type": "PermissionError",
+      "qualified_type": null,
+      "message": "CRM rejected session eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJldGwtYm90In0.ZmFrZS1zaWduYXR1cmUtZm9yLXRlc3Rz for postgresql://etl_user:Sup3r-S3cret-Pw@warehouse.internal:5432/sales",
+      "frames": [
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 1579,
+          "name": "_run_task_and_map_outcome"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2234,
+          "name": "_execute_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2192,
+          "name": "_run_execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/decorator.py",
+          "lineno": 435,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 231,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 254,
+          "name": "execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/callback_runner.py",
+          "lineno": 97,
+          "name": "run"
+        },
+        {
+          "filename": "/opt/airflow/dags/demo/crm_session_sync.py",
+          "lineno": 29,
+          "name": "sync_crm"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "log_tail": [
+    {
+      "n": 1,
+      "timestamp": "2026-11-23T16:53:41.612087Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
+      "message": "DAG bundles loaded: dags-folder"
+    },
+    {
+      "n": 2,
+      "timestamp": "2026-11-23T16:53:41.612738Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.dagbag.BundleDagBag",
+      "message": "Filling up the DagBag from /opt/airflow/dags/demo/crm_session_sync.py"
+    },
+    {
+      "n": 3,
+      "timestamp": "2026-11-23T16:53:41.644594Z",
+      "level": "info",
+      "logger": "task",
+      "message": "Worker startup parse complete"
+    },
+    {
+      "n": 4,
+      "timestamp": "2026-11-23T16:53:41.674173Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Connecting to postgresql://etl_user:Sup3r-S3cret-Pw@warehouse.internal:5432/sales"
+    },
+    {
+      "n": 5,
+      "timestamp": "2026-11-23T16:53:41.674479Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "POST https://crm.example.com/api/sync?region=eu-west-1&access_token=ck_7Hq2LmX9pR4vT8wZ3nB6yK1d"
+    },
+    {
+      "n": 6,
+      "timestamp": "2026-11-23T16:53:41.674749Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Paging data-oncall@example.com"
+    },
+    {
+      "n": 7,
+      "timestamp": "2026-11-23T16:53:41.674077Z",
+      "level": "error",
+      "logger": "task",
+      "message": "Task failed with exception"
+    }
+  ],
+  "log_total_lines": 7,
+  "dag_file": "demo/crm_session_sync.py",
+  "dag_source": "\"\"\"Sync CRM sessions into the warehouse.\"\"\"\n\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\nWAREHOUSE_DSN = \"postgresql://etl_user:Sup3r-S3cret-Pw@warehouse.internal:5432/sales\"\nCRM_SESSION = \"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJldGwtYm90In0.ZmFrZS1zaWduYXR1cmUtZm9yLXRlc3Rz\"\nONCALL_EMAIL = \"data-oncall@example.com\"\n\n\n@dag(\n    dag_id=\"demo_crm_session_sync\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"crm\"],\n    default_args={\"retries\": 0},\n)\ndef demo_crm_session_sync():\n    @task\n    def sync_crm(crm_api_key: str, region: str) -> None:\n        print(f\"Connecting to {WAREHOUSE_DSN}\")\n        print(f\"POST https://crm.example.com/api/sync?region={region}&access_token={crm_api_key}\")\n        print(f\"Paging {ONCALL_EMAIL}\")\n        raise PermissionError(f\"CRM rejected session {CRM_SESSION} for {WAREHOUSE_DSN}\")\n\n    sync_crm(crm_api_key=\"ck_7Hq2LmX9pR4vT8wZ3nB6yK1d\", region=\"eu-west-1\")\n\n\ndemo_crm_session_sync()\n",
+  "run_history": [
+    {
+      "run_id": "manual__2026-11-23T16:53:40.928773+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:41.540381Z",
+      "end_date": "2026-11-23T16:53:41.680010Z",
+      "duration_s": 0.139629,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-23T16:53:10.802344+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:11.462822Z",
+      "end_date": "2026-11-23T16:53:11.603188Z",
+      "duration_s": 0.140366,
+      "is_current": false
+    }
+  ],
+  "recent_commits": [
+    {
+      "sha": "9d8f0c76557ed76628b2864b3fd7888813456be7",
+      "author": "naresy",
+      "date": "2026-11-23T11:53:10-05:00",
+      "subject": "Neutral demo DAGs; fix run-history evidence check; cache only multi-turn calls",
+      "diff": "diff --git a/dev/dags/demo/crm_session_sync.py b/dev/dags/demo/crm_session_sync.py\nnew file mode 100644\nindex 0000000..fdc4948\n--- /dev/null\n+++ b/dev/dags/demo/crm_session_sync.py\n@@ -0,0 +1,34 @@\n+\"\"\"Sync CRM sessions into the warehouse.\"\"\"\n+\n+from datetime import datetime\n+\n+try:\n+    from airflow.sdk import dag, task\n+except ImportError:  # Airflow 2.x\n+    from airflow.decorators import dag, task\n+\n+WAREHOUSE_DSN = \"postgresql://etl_user:Sup3r-S3cret-Pw@warehouse.internal:5432/sales\"\n+CRM_SESSION = \"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJldGwtYm90In0.ZmFrZS1zaWduYXR1cmUtZm9yLXRlc3Rz\"\n+ONCALL_EMAIL = \"data-oncall@example.com\"\n+\n+\n+@dag(\n+    dag_id=\"demo_crm_session_sync\",\n+    schedule=None,\n+    start_date=datetime(2026, 1, 1),\n+    catchup=False,\n+    tags=[\"crm\"],\n+    default_args={\"retries\": 0},\n+)\n+def demo_crm_session_sync():\n+    @task\n+    def sync_crm(crm_api_key: str, region: str) -> None:\n+        print(f\"Connecting to {WAREHOUSE_DSN}\")\n+        print(f\"POST https://crm.example.com/api/sync?region={region}&access_token={crm_api_key}\")\n+        print(f\"Paging {ONCALL_EMAIL}\")\n+        raise PermissionError(f\"CRM rejected session {CRM_SESSION} for {WAREHOUSE_DSN}\")\n+\n+    sync_crm(crm_api_key=\"ck_7Hq2LmX9pR4vT8wZ3nB6yK1d\", region=\"eu-west-1\")\n+\n+\n+demo_crm_session_sync()\n",
+      "diff_truncated": false
+    }
+  ],
+  "collection_errors": [],
+  "collected_at": "2026-11-23T16:54:18.551110Z"
+}

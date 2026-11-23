@@ -1,0 +1,197 @@
+{
+  "job": {
+    "dag_id": "demo_partner_export",
+    "run_id": "manual__2026-11-23T16:53:40.904365+00:00",
+    "task_id": "export_partner_data",
+    "try_number": 1,
+    "map_index": -1,
+    "failed_at": null
+  },
+  "airflow_version": "3.3.2",
+  "api_version": "v2",
+  "task_state": "failed",
+  "operator": "_PythonDecoratedOperator",
+  "hostname": "9a8bbeb22b0e",
+  "duration_s": 10.177217,
+  "task_params": {
+    "templates_dict": null,
+    "op_args": [],
+    "op_kwargs": {}
+  },
+  "run_conf": {},
+  "exceptions": [
+    {
+      "type": "AirflowTaskTimeout",
+      "qualified_type": null,
+      "message": "Timeout, PID: 2521",
+      "frames": [
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 1579,
+          "name": "_run_task_and_map_outcome"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2234,
+          "name": "_execute_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 197,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/task_runner.py",
+          "lineno": 2187,
+          "name": "_run_execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/decorator.py",
+          "lineno": 435,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/bases/operator.py",
+          "lineno": 462,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 231,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/providers/standard/operators/python.py",
+          "lineno": 254,
+          "name": "execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/callback_runner.py",
+          "lineno": 97,
+          "name": "run"
+        },
+        {
+          "filename": "/opt/airflow/dags/demo/partner_export.py",
+          "lineno": 25,
+          "name": "export_partner_data"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.13/site-packages/airflow/sdk/execution_time/timeout.py",
+          "lineno": 39,
+          "name": "handle_timeout"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "log_tail": [
+    {
+      "n": 1,
+      "timestamp": "2026-11-23T16:53:41.638430Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
+      "message": "DAG bundles loaded: dags-folder"
+    },
+    {
+      "n": 2,
+      "timestamp": "2026-11-23T16:53:41.639912Z",
+      "level": "info",
+      "logger": "airflow.dag_processing.dagbag.BundleDagBag",
+      "message": "Filling up the DagBag from /opt/airflow/dags/demo/partner_export.py"
+    },
+    {
+      "n": 3,
+      "timestamp": "2026-11-23T16:53:41.662544Z",
+      "level": "info",
+      "logger": "task",
+      "message": "Worker startup parse complete"
+    },
+    {
+      "n": 4,
+      "timestamp": "2026-11-23T16:53:41.688798Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Fetching page 1 from partner API ..."
+    },
+    {
+      "n": 5,
+      "timestamp": "2026-11-23T16:53:44.694807Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Fetching page 2 from partner API ..."
+    },
+    {
+      "n": 6,
+      "timestamp": "2026-11-23T16:53:47.699891Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Fetching page 3 from partner API ..."
+    },
+    {
+      "n": 7,
+      "timestamp": "2026-11-23T16:53:50.700245Z",
+      "level": "info",
+      "logger": "task.stdout",
+      "message": "Fetching page 4 from partner API ..."
+    },
+    {
+      "n": 8,
+      "timestamp": "2026-11-23T16:53:51.694784Z",
+      "level": "error",
+      "logger": "task",
+      "message": "Process timed out"
+    },
+    {
+      "n": 9,
+      "timestamp": "2026-11-23T16:53:51.695937Z",
+      "level": "error",
+      "logger": "task",
+      "message": "Task failed with exception"
+    }
+  ],
+  "log_total_lines": 9,
+  "dag_file": "demo/partner_export.py",
+  "dag_source": "\"\"\"Partner data export.\"\"\"\n\nimport time\nfrom datetime import datetime, timedelta\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"demo_partner_export\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"partners\"],\n    default_args={\"retries\": 0},\n)\ndef demo_partner_export():\n    @task(execution_timeout=timedelta(seconds=10))\n    def export_partner_data() -> None:\n        for page in range(1, 100):\n            print(f\"Fetching page {page} from partner API ...\")\n            time.sleep(3)\n\n    export_partner_data()\n\n\ndemo_partner_export()\n",
+  "run_history": [
+    {
+      "run_id": "manual__2026-11-23T16:53:40.904365+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:41.541593Z",
+      "end_date": "2026-11-23T16:53:51.718810Z",
+      "duration_s": 10.177217,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-23T16:53:10.773044+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T16:53:11.476495Z",
+      "end_date": "2026-11-23T16:53:21.620887Z",
+      "duration_s": 10.144392,
+      "is_current": false
+    }
+  ],
+  "recent_commits": [
+    {
+      "sha": "9d8f0c76557ed76628b2864b3fd7888813456be7",
+      "author": "naresy",
+      "date": "2026-11-23T11:53:10-05:00",
+      "subject": "Neutral demo DAGs; fix run-history evidence check; cache only multi-turn calls",
+      "diff": "diff --git a/dev/dags/demo/partner_export.py b/dev/dags/demo/partner_export.py\nnew file mode 100644\nindex 0000000..24c7bdb\n--- /dev/null\n+++ b/dev/dags/demo/partner_export.py\n@@ -0,0 +1,30 @@\n+\"\"\"Partner data export.\"\"\"\n+\n+import time\n+from datetime import datetime, timedelta\n+\n+try:\n+    from airflow.sdk import dag, task\n+except ImportError:  # Airflow 2.x\n+    from airflow.decorators import dag, task\n+\n+\n+@dag(\n+    dag_id=\"demo_partner_export\",\n+    schedule=None,\n+    start_date=datetime(2026, 1, 1),\n+    catchup=False,\n+    tags=[\"partners\"],\n+    default_args={\"retries\": 0},\n+)\n+def demo_partner_export():\n+    @task(execution_timeout=timedelta(seconds=10))\n+    def export_partner_data() -> None:\n+        for page in range(1, 100):\n+            print(f\"Fetching page {page} from partner API ...\")\n+            time.sleep(3)\n+\n+    export_partner_data()\n+\n+\n+demo_partner_export()\n",
+      "diff_truncated": false
+    }
+  ],
+  "collection_errors": [],
+  "collected_at": "2026-11-23T16:54:19.177791Z"
+}

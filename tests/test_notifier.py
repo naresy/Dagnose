@@ -85,7 +85,7 @@ def test_card_with_diagnosis() -> None:
     assert card.headline == "Code bug · confidence 0.60"
     assert card.diagnosed and card.has_patch
     assert [(e.verified, e.where) for e in card.evidence] == [
-        (True, "dag_source:27"),
+        (True, "dag_source:26"),
         (False, "log:3"),
     ]
     assert card.note and "lowered from 0.95" in card.note and "1 of 2" in card.note
@@ -166,7 +166,7 @@ def test_slack_payload() -> None:
         "actions",
     ]
     text = json.dumps(payload)
-    assert ":white_check_mark: `dag_source:27`" in text and ":grey_question: `log:3`" in text
+    assert ":white_check_mark: `dag_source:26`" in text and ":grey_question: `log:3`" in text
     assert "A patch is in the diagnosis file" in text
     assert payload["blocks"][-1]["elements"][0]["url"].startswith("http://ui.test/dags/")
     assert payload["text"].startswith("demo_orders_tax.compute_tax failed: ")

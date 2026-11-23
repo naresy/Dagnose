@@ -138,7 +138,7 @@ Run the e2e check locally the same way CI does: start a stack, then `uv run pyth
 
 We build one piece at a time, and each piece is tested before the next one starts.
 
-**Status:** steps 1, 2 and 4 done, plus CI/CD. Step 3 is built and tested offline; its first live run needs an API key. **Next: step 5, incident memory.**
+**Status:** steps 1 to 4 done, plus CI/CD. **Next: step 5, incident memory.**
 
 - [x] **0. Foundation:** project scaffold, local Airflow 3 and 2 in Docker, 5 broken DAGs, CI/CD pipeline (lint, types, tests on Python 3.10–3.13, e2e on real Airflow 2 and 3, build, release to PyPI)
 - [x] **1. Collector:** capture real failure data from a local Airflow (Docker Compose + broken DAGs)
@@ -148,7 +148,8 @@ We build one piece at a time, and each piece is tested before the next one start
 - [x] **2. Redactor:** secret scrubbing with tests
   - placeholders keep evidence (hosts, users, ids, failing lines); the worker writes only redacted data
   - checked on real Airflow 2 and 3: planted fake secrets never reach the saved context, and clean failures lose nothing but author names
-- [ ] **3. Diagnosis agent:** LLM + read-only tools, structured JSON output ← **built, tested offline; live run pending an API key**
+- [x] **3. Diagnosis agent:** LLM + read-only tools, structured JSON output
+  - live run on the 6 demo failures (Claude Opus 5.5, no hints in the DAG code): 6/6 categories right, 29/31 evidence quotes verified, about $0.03 per diagnosis
   - Claude via the Anthropic SDK behind a provider interface; strict tools, structured output, refusal fallback, prompt caching
   - evidence quotes checked against the context; confidence capped when they do not check out
   - without credentials the worker still collects and redacts, and skips the diagnosis

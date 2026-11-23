@@ -15,7 +15,7 @@ from tests.conftest import FIXTURES, ReplayTransport, load_recording, recordings
 # What a correct collection must find for each broken DAG, on Airflow 2 and 3 alike:
 # exception type, and the DAG-code frame (file, line) the failure points to.
 # Shared with dev/e2e.py, which checks the same against a live Airflow.
-_EXPECTED_FILE = FIXTURES.parent.parent / "dev" / "dags" / "broken" / "expected.json"
+_EXPECTED_FILE = FIXTURES.parent.parent / "dev" / "dags" / "demo" / "expected.json"
 EXPECTED = {
     dag_id: (e["exception"], e["file"], e["line"])
     for dag_id, e in json.loads(_EXPECTED_FILE.read_text()).items()
