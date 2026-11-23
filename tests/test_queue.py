@@ -91,3 +91,43 @@ def test_concurrent_spool_writers(tmp_path: Path) -> None:
     q = JobQueue(tmp_path / "q.db")
     assert q.ingest_spool(spool) == 40
     assert q.counts() == {"pending": 40}
+
+
+def test_dedupe_when_try_number_is_missing(tmp_path: Path) -> None:
+    q = JobQueue(tmp_path / "q.db")
+    assert q.enqueue("d", "r", "t", None) is True
+    assert q.enqueue("d", "r", "t", None) is False
+
+
+def test_retry_waits_for_backoff(tmp_path: Path) -> None:
+    q = JobQueue(tmp_path / "q.db")
+    q.enqueue("d", "r", "t", 1)
+    job = q.claim()
+    assert job is not None
+    q.mark_error(job.id, "airflow down", retry=True, retry_after_s=60)
+    assert q.claim() is None  # not due yet
+    assert q.counts() == {"pending": 1}
+
+
+def test_upgrades_queue_from_older_schema(tmp_path: Path) -> None:
+    import sqlite3
+
+    path = tmp_path / "q.db"
+    old = sqlite3.connect(path)
+    old.execute(
+        "CREATE TABLE jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, dag_id TEXT NOT NULL,"
+        " run_id TEXT NOT NULL, task_id TEXT NOT NULL, try_number INTEGER,"
+        " map_index INTEGER NOT NULL DEFAULT -1, failed_at TEXT,"
+        " status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,"
+        " last_error TEXT, enqueued_at REAL NOT NULL, updated_at REAL NOT NULL,"
+        " UNIQUE (dag_id, run_id, task_id, try_number, map_index))"
+    )
+    old.execute(
+        "INSERT INTO jobs (dag_id, run_id, task_id, try_number, enqueued_at, updated_at)"
+        " VALUES ('d', 'r', 't', 1, 0, 0)"
+    )
+    old.commit()
+    old.close()
+    q = JobQueue(path)
+    job = q.claim()
+    assert job is not None and job.run_id == "r"

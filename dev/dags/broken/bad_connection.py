@@ -2,7 +2,19 @@
 
 from datetime import datetime
 
-from airflow.sdk import Connection, dag, task
+try:
+    from airflow.sdk import dag, task
+except ImportError:  # Airflow 2.x
+    from airflow.decorators import dag, task
+
+try:
+    from airflow.sdk import Connection
+
+    get_connection = Connection.get
+except ImportError:  # Airflow 2.x
+    from airflow.hooks.base import BaseHook
+
+    get_connection = BaseHook.get_connection
 
 
 @dag(
@@ -17,7 +29,7 @@ def broken_bad_connection():
     @task
     def push_to_crm() -> None:
         # Typo: the real connection is "salesforce_prod".
-        conn = Connection.get("salesforce_prd")
+        conn = get_connection("salesforce_prd")
         print(f"Connecting to {conn.host}")
 
     push_to_crm()

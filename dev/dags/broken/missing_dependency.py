@@ -2,7 +2,10 @@
 
 from datetime import datetime
 
-from airflow.sdk import dag, task
+try:
+    from airflow.sdk import dag, task
+except ImportError:  # Airflow 2.x
+    from airflow.decorators import dag, task
 
 
 @dag(

@@ -49,7 +49,8 @@ class StackFrame(BaseModel):
 
 
 class ExceptionInfo(BaseModel):
-    type: str
+    type: str  # short class name, e.g. "AirflowNotFoundException", same on Airflow 2 and 3
+    qualified_type: str | None = None  # with module path, when the log shows it
     message: str
     frames: list[StackFrame] = Field(default_factory=list)  # outermost call first
     notes: list[str] = Field(default_factory=list)

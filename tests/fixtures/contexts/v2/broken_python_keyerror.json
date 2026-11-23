@@ -1,7 +1,7 @@
 {
   "job": {
     "dag_id": "broken_python_keyerror",
-    "run_id": "manual__2026-11-22T18:18:32.299838+00:00",
+    "run_id": "manual__2026-11-23T02:24:40.385167+00:00",
     "task_id": "compute_tax",
     "try_number": 1,
     "map_index": -1,
@@ -12,7 +12,7 @@
   "task_state": "failed",
   "operator": "_PythonDecoratedOperator",
   "hostname": "9a8bbeb22b0e",
-  "duration_s": 0.042973,
+  "duration_s": 0.080299,
   "task_params": {
     "templates_dict": null,
     "op_args": [
@@ -28,6 +28,7 @@
   "exceptions": [
     {
       "type": "KeyError",
+      "qualified_type": null,
       "message": "'country'",
       "frames": [
         {
@@ -87,7 +88,7 @@
         },
         {
           "filename": "/opt/airflow/dags/broken/python_keyerror.py",
-          "lineno": 24,
+          "lineno": 27,
           "name": "compute_tax"
         }
       ],
@@ -97,28 +98,28 @@
   "log_tail": [
     {
       "n": 1,
-      "timestamp": "2026-11-22T18:18:34.017429Z",
+      "timestamp": "2026-11-23T02:24:41.908526Z",
       "level": "info",
       "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
       "message": "DAG bundles loaded: dags-folder"
     },
     {
       "n": 2,
-      "timestamp": "2026-11-22T18:18:34.017775Z",
+      "timestamp": "2026-11-23T02:24:41.909485Z",
       "level": "info",
       "logger": "airflow.dag_processing.dagbag.BundleDagBag",
       "message": "Filling up the DagBag from /opt/airflow/dags/broken/python_keyerror.py"
     },
     {
       "n": 3,
-      "timestamp": "2026-11-22T18:18:34.030112Z",
+      "timestamp": "2026-11-23T02:24:41.932081Z",
       "level": "info",
       "logger": "task",
       "message": "Worker startup parse complete"
     },
     {
       "n": 4,
-      "timestamp": "2026-11-22T18:18:34.042856Z",
+      "timestamp": "2026-11-23T02:24:41.957197Z",
       "level": "error",
       "logger": "task",
       "message": "Task failed with exception"
@@ -126,8 +127,17 @@
   ],
   "log_total_lines": 4,
   "dag_file": "broken/python_keyerror.py",
-  "dag_source": "\"\"\"Broken DAG: code bug. Downstream task reads a key the upstream payload never had.\"\"\"\n\nfrom datetime import datetime\n\nfrom airflow.sdk import dag, task\n\n\n@dag(\n    dag_id=\"broken_python_keyerror\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"code_bug\"],\n    default_args={\"retries\": 0},\n)\ndef broken_python_keyerror():\n    @task\n    def extract_orders() -> dict:\n        return {\"order_id\": 42, \"amount\": 19.99, \"currency\": \"USD\"}\n\n    @task\n    def compute_tax(order: dict) -> float:\n        # Bug: upstream renamed \"country\" away; nobody updated this task.\n        return order[\"amount\"] * TAX_RATES[order[\"country\"]]\n\n    compute_tax(extract_orders())\n\n\nTAX_RATES = {\"US\": 0.07, \"DE\": 0.19}\n\nbroken_python_keyerror()\n",
+  "dag_source": "\"\"\"Broken DAG: code bug. Downstream task reads a key the upstream payload never had.\"\"\"\n\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"broken_python_keyerror\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"code_bug\"],\n    default_args={\"retries\": 0},\n)\ndef broken_python_keyerror():\n    @task\n    def extract_orders() -> dict:\n        return {\"order_id\": 42, \"amount\": 19.99, \"currency\": \"USD\"}\n\n    @task\n    def compute_tax(order: dict) -> float:\n        # Bug: upstream renamed \"country\" away; nobody updated this task.\n        return order[\"amount\"] * TAX_RATES[order[\"country\"]]\n\n    compute_tax(extract_orders())\n\n\nTAX_RATES = {\"US\": 0.07, \"DE\": 0.19}\n\nbroken_python_keyerror()\n",
   "run_history": [
+    {
+      "run_id": "manual__2026-11-23T02:24:40.385167+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T02:24:41.884877Z",
+      "end_date": "2026-11-23T02:24:41.965176Z",
+      "duration_s": 0.080299,
+      "is_current": true
+    },
     {
       "run_id": "manual__2026-11-22T18:18:32.299838+00:00",
       "state": "failed",
@@ -135,7 +145,7 @@
       "start_date": "2026-11-22T18:18:34.004601Z",
       "end_date": "2026-11-22T18:18:34.047574Z",
       "duration_s": 0.042973,
-      "is_current": true
+      "is_current": false
     },
     {
       "run_id": "manual__2026-11-22T17:07:36.190468+00:00",
@@ -167,5 +177,5 @@
     }
   ],
   "collection_errors": [],
-  "collected_at": "2026-11-22T19:21:58.919393Z"
+  "collected_at": "2026-11-23T02:25:18.602088Z"
 }

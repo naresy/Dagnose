@@ -92,13 +92,23 @@ uv run python dev/record_fixtures.py      # refresh recorded API traffic + conte
 
 Tests replay recorded real Airflow API traffic (`tests/fixtures/api/`), so they need no running Airflow. `tests/fixtures/contexts/` holds the collected `FailureContext` for each broken DAG, the input for the redactor and agent steps.
 
-Airflow support: 3.x first, 2.x kept working through the v1 REST API.
+### Airflow 2.x
+
+Airflow support: 3.x first, 2.x kept working through the v1 REST API. Both are tested against real installs (3.3.2 and 2.11.1). A 2.x stack runs next to the 3.x one, with the same broken DAGs and plugin:
+
+```bash
+cd dev/airflow2 && docker compose up -d   # Airflow 2.11 at http://localhost:8081 (airflow / airflow)
+
+export AIRFLOW_DOCTOR_HOME=dev/airflow2/doctor-data AIRFLOW_DOCTOR_AIRFLOW_URL=http://localhost:8081
+uv run airflow-doctor worker --once       # same commands as above
+AIRFLOW_DOCTOR_AIRFLOW_URL=http://localhost:8081 uv run python dev/record_fixtures.py   # v1 fixtures
+```
 
 ## Roadmap
 
 We build one piece at a time, and each piece is tested before the next one starts.
 
-- [ ] **1. Collector:** capture real failure data from a local Airflow (Docker Compose + broken DAGs)
+- [x] **1. Collector:** capture real failure data from a local Airflow (Docker Compose + broken DAGs)
 - [ ] **2. Redactor:** secret scrubbing with tests
 - [ ] **3. Diagnosis agent:** LLM + read-only tools, structured JSON output
 - [ ] **4. Slack notifier:** diagnosis card with evidence

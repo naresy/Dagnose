@@ -1,0 +1,957 @@
+{
+  "job": {
+    "dag_id": "broken_python_keyerror",
+    "run_id": "manual__2026-11-23T02:24:40.495154+00:00",
+    "task_id": "compute_tax",
+    "try_number": 1,
+    "map_index": -1,
+    "failed_at": null
+  },
+  "airflow_version": "2.11.1",
+  "api_version": "v1",
+  "task_state": "failed",
+  "operator": "_PythonDecoratedOperator",
+  "hostname": "b67505efb6ac",
+  "duration_s": 0.112578,
+  "task_params": {
+    "op_args": [
+      {
+        "amount": 19.99,
+        "currency": "USD",
+        "order_id": 42
+      }
+    ],
+    "op_kwargs": {},
+    "templates_dict": null
+  },
+  "run_conf": {},
+  "exceptions": [
+    {
+      "type": "KeyError",
+      "qualified_type": null,
+      "message": "'country'",
+      "frames": [
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/task/task_runner/standard_task_runner.py",
+          "lineno": 117,
+          "name": "_start_by_fork"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/cli/cli_config.py",
+          "lineno": 49,
+          "name": "command"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/cli.py",
+          "lineno": 116,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/cli/commands/task_command.py",
+          "lineno": 483,
+          "name": "task_run"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/cli/commands/task_command.py",
+          "lineno": 256,
+          "name": "_run_task_by_selected_method"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/cli/commands/task_command.py",
+          "lineno": 341,
+          "name": "_run_raw_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/session.py",
+          "lineno": 97,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py",
+          "lineno": 3029,
+          "name": "_run_raw_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py",
+          "lineno": 282,
+          "name": "_run_raw_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py",
+          "lineno": 3184,
+          "name": "_execute_task_with_callbacks"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py",
+          "lineno": 3208,
+          "name": "_execute_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py",
+          "lineno": 776,
+          "name": "_execute_task"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py",
+          "lineno": 742,
+          "name": "_execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/operator_helpers.py",
+          "lineno": 252,
+          "name": "run"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/models/baseoperator.py",
+          "lineno": 425,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/decorators/base.py",
+          "lineno": 266,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/models/baseoperator.py",
+          "lineno": 425,
+          "name": "wrapper"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/operators/python.py",
+          "lineno": 238,
+          "name": "execute"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/operators/python.py",
+          "lineno": 256,
+          "name": "execute_callable"
+        },
+        {
+          "filename": "/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/operator_helpers.py",
+          "lineno": 252,
+          "name": "run"
+        },
+        {
+          "filename": "/opt/airflow/dags/broken/python_keyerror.py",
+          "lineno": 27,
+          "name": "compute_tax"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "log_tail": [
+    {
+      "n": 1,
+      "timestamp": "2026-11-23T02:24:41.962+0000",
+      "level": "info",
+      "logger": "taskinstance.py:2631",
+      "message": "Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: broken_python_keyerror.compute_tax manual__2026-11-23T02:24:40.495154+00:00 [queued]>"
+    },
+    {
+      "n": 2,
+      "timestamp": "2026-11-23T02:24:41.966+0000",
+      "level": "info",
+      "logger": "taskinstance.py:2631",
+      "message": "Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: broken_python_keyerror.compute_tax manual__2026-11-23T02:24:40.495154+00:00 [queued]>"
+    },
+    {
+      "n": 3,
+      "timestamp": "2026-11-23T02:24:41.967+0000",
+      "level": "info",
+      "logger": "taskinstance.py:2884",
+      "message": "Starting attempt 1 of 1"
+    },
+    {
+      "n": 4,
+      "timestamp": "2026-11-23T02:24:41.971+0000",
+      "level": "info",
+      "logger": "taskinstance.py:2907",
+      "message": "Executing <Task(_PythonDecoratedOperator): compute_tax> on 2026-11-23 02:24:40.495154+00:00"
+    },
+    {
+      "n": 5,
+      "timestamp": "2026-11-23T02:24:41.975+0000",
+      "level": "warning",
+      "logger": "logging_mixin.py:190",
+      "message": "/home/***/.local/lib/python3.12/site-packages/***/task/task_runner/standard_task_runner.py:70 DeprecationWarning: This process (pid=358) is multi-threaded, use of fork() may lead to deadlocks in the child."
+    },
+    {
+      "n": 6,
+      "timestamp": "2026-11-23T02:24:41.976+0000",
+      "level": "info",
+      "logger": "standard_task_runner.py:104",
+      "message": "Running: ['***', 'tasks', 'run', 'broken_python_keyerror', 'compute_tax', 'manual__2026-11-23T02:24:40.495154+00:00', '--job-id', '13', '--raw', '--subdir', 'DAGS_FOLDER/broken/python_keyerror.py', '--cfg-path', '/tmp/tmphe5kkawz']"
+    },
+    {
+      "n": 7,
+      "timestamp": "2026-11-23T02:24:41.977+0000",
+      "level": "info",
+      "logger": "standard_task_runner.py:72",
+      "message": "Started process 362 to run task"
+    },
+    {
+      "n": 8,
+      "timestamp": "2026-11-23T02:24:41.977+0000",
+      "level": "info",
+      "logger": "standard_task_runner.py:105",
+      "message": "Job 13: Subtask compute_tax"
+    },
+    {
+      "n": 9,
+      "timestamp": "2026-11-23T02:24:42.012+0000",
+      "level": "info",
+      "logger": "task_command.py:467",
+      "message": "Running <TaskInstance: broken_python_keyerror.compute_tax manual__2026-11-23T02:24:40.495154+00:00 [running]> on host b67505efb6ac"
+    },
+    {
+      "n": 10,
+      "timestamp": "2026-11-23T02:24:42.066+0000",
+      "level": "info",
+      "logger": "taskinstance.py:3157",
+      "message": "Exporting env vars: AIRFLOW_CTX_DAG_OWNER='***' AIRFLOW_CTX_DAG_ID='broken_python_keyerror' AIRFLOW_CTX_TASK_ID='compute_tax' AIRFLOW_CTX_EXECUTION_DATE='2026-11-23T02:24:40.495154+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='manual__2026-11-23T02:24:40.495154+00:00'"
+    },
+    {
+      "n": 11,
+      "timestamp": "2026-11-23T02:24:42.068+0000",
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "Task failed with exception"
+    },
+    {
+      "n": 12,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "Traceback (most recent call last):"
+    },
+    {
+      "n": 13,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py\", line 776, in _execute_task"
+    },
+    {
+      "n": 14,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    result = _execute_callable(context=context, **execute_callable_kwargs)"
+    },
+    {
+      "n": 15,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 16,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py\", line 742, in _execute_callable"
+    },
+    {
+      "n": 17,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    return ExecutionCallableRunner("
+    },
+    {
+      "n": 18,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 19,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/operator_helpers.py\", line 252, in run"
+    },
+    {
+      "n": 20,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    return self.func(*args, **kwargs)"
+    },
+    {
+      "n": 21,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 22,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/baseoperator.py\", line 425, in wrapper"
+    },
+    {
+      "n": 23,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    return func(self, *args, **kwargs)"
+    },
+    {
+      "n": 24,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 25,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/decorators/base.py\", line 266, in execute"
+    },
+    {
+      "n": 26,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    return_value = super().execute(context)"
+    },
+    {
+      "n": 27,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "                   ^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 28,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/baseoperator.py\", line 425, in wrapper"
+    },
+    {
+      "n": 29,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    return func(self, *args, **kwargs)"
+    },
+    {
+      "n": 30,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 31,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/operators/python.py\", line 238, in execute"
+    },
+    {
+      "n": 32,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    return_value = self.execute_callable()"
+    },
+    {
+      "n": 33,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "                   ^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 34,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/operators/python.py\", line 256, in execute_callable"
+    },
+    {
+      "n": 35,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    return runner.run(*self.op_args, **self.op_kwargs)"
+    },
+    {
+      "n": 36,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 37,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/operator_helpers.py\", line 252, in run"
+    },
+    {
+      "n": 38,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    return self.func(*args, **kwargs)"
+    },
+    {
+      "n": 39,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 40,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "  File \"/opt/airflow/dags/broken/python_keyerror.py\", line 27, in compute_tax"
+    },
+    {
+      "n": 41,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "    return order[\"amount\"] * TAX_RATES[order[\"country\"]]"
+    },
+    {
+      "n": 42,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "                                       ~~~~~^^^^^^^^^^^"
+    },
+    {
+      "n": 43,
+      "timestamp": null,
+      "level": "error",
+      "logger": "taskinstance.py:3336",
+      "message": "KeyError: 'country'"
+    },
+    {
+      "n": 44,
+      "timestamp": "2026-11-23T02:24:42.076+0000",
+      "level": "info",
+      "logger": "taskinstance.py:1242",
+      "message": "Marking task as FAILED. dag_id=broken_python_keyerror, task_id=compute_tax, run_id=manual__2026-11-23T02:24:40.495154+00:00, execution_date=20261123T022440, start_date=20261123T022441, end_date=20261123T022442"
+    },
+    {
+      "n": 45,
+      "timestamp": "2026-11-23T02:24:42.092+0000",
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "Failed to execute job 13 for task compute_tax ('country'; 362)"
+    },
+    {
+      "n": 46,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "Traceback (most recent call last):"
+    },
+    {
+      "n": 47,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/task/task_runner/standard_task_runner.py\", line 117, in _start_by_fork"
+    },
+    {
+      "n": 48,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    ret = args.func(args, dag=self.dag)"
+    },
+    {
+      "n": 49,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 50,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/cli/cli_config.py\", line 49, in command"
+    },
+    {
+      "n": 51,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return func(*args, **kwargs)"
+    },
+    {
+      "n": 52,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 53,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/cli.py\", line 116, in wrapper"
+    },
+    {
+      "n": 54,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return f(*args, **kwargs)"
+    },
+    {
+      "n": 55,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 56,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/cli/commands/task_command.py\", line 483, in task_run"
+    },
+    {
+      "n": 57,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    task_return_code = _run_task_by_selected_method(args, _dag, ti)"
+    },
+    {
+      "n": 58,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 59,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/cli/commands/task_command.py\", line 256, in _run_task_by_selected_method"
+    },
+    {
+      "n": 60,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return _run_raw_task(args, ti)"
+    },
+    {
+      "n": 61,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 62,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/cli/commands/task_command.py\", line 341, in _run_raw_task"
+    },
+    {
+      "n": 63,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return ti._run_raw_task("
+    },
+    {
+      "n": 64,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 65,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/session.py\", line 97, in wrapper"
+    },
+    {
+      "n": 66,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return func(*args, session=session, **kwargs)"
+    },
+    {
+      "n": 67,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 68,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py\", line 3029, in _run_raw_task"
+    },
+    {
+      "n": 69,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return _run_raw_task("
+    },
+    {
+      "n": 70,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 71,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py\", line 282, in _run_raw_task"
+    },
+    {
+      "n": 72,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    TaskInstance._execute_task_with_callbacks("
+    },
+    {
+      "n": 73,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py\", line 3184, in _execute_task_with_callbacks"
+    },
+    {
+      "n": 74,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    result = self._execute_task(context, task_orig)"
+    },
+    {
+      "n": 75,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 76,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py\", line 3208, in _execute_task"
+    },
+    {
+      "n": 77,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return _execute_task(self, context, task_orig)"
+    },
+    {
+      "n": 78,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 79,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py\", line 776, in _execute_task"
+    },
+    {
+      "n": 80,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    result = _execute_callable(context=context, **execute_callable_kwargs)"
+    },
+    {
+      "n": 81,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 82,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/taskinstance.py\", line 742, in _execute_callable"
+    },
+    {
+      "n": 83,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return ExecutionCallableRunner("
+    },
+    {
+      "n": 84,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 85,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/operator_helpers.py\", line 252, in run"
+    },
+    {
+      "n": 86,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return self.func(*args, **kwargs)"
+    },
+    {
+      "n": 87,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 88,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/baseoperator.py\", line 425, in wrapper"
+    },
+    {
+      "n": 89,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return func(self, *args, **kwargs)"
+    },
+    {
+      "n": 90,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 91,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/decorators/base.py\", line 266, in execute"
+    },
+    {
+      "n": 92,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return_value = super().execute(context)"
+    },
+    {
+      "n": 93,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "                   ^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 94,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/models/baseoperator.py\", line 425, in wrapper"
+    },
+    {
+      "n": 95,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return func(self, *args, **kwargs)"
+    },
+    {
+      "n": 96,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 97,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/operators/python.py\", line 238, in execute"
+    },
+    {
+      "n": 98,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return_value = self.execute_callable()"
+    },
+    {
+      "n": 99,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "                   ^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 100,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/operators/python.py\", line 256, in execute_callable"
+    },
+    {
+      "n": 101,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return runner.run(*self.op_args, **self.op_kwargs)"
+    },
+    {
+      "n": 102,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 103,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/home/airflow/.local/lib/python3.12/site-packages/airflow/utils/operator_helpers.py\", line 252, in run"
+    },
+    {
+      "n": 104,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return self.func(*args, **kwargs)"
+    },
+    {
+      "n": 105,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "           ^^^^^^^^^^^^^^^^^^^^^^^^^^"
+    },
+    {
+      "n": 106,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "  File \"/opt/airflow/dags/broken/python_keyerror.py\", line 27, in compute_tax"
+    },
+    {
+      "n": 107,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "    return order[\"amount\"] * TAX_RATES[order[\"country\"]]"
+    },
+    {
+      "n": 108,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "                                       ~~~~~^^^^^^^^^^^"
+    },
+    {
+      "n": 109,
+      "timestamp": null,
+      "level": "error",
+      "logger": "standard_task_runner.py:124",
+      "message": "KeyError: 'country'"
+    },
+    {
+      "n": 110,
+      "timestamp": "2026-11-23T02:24:42.096+0000",
+      "level": "info",
+      "logger": "local_task_job_runner.py:266",
+      "message": "Task exited with return code 1"
+    },
+    {
+      "n": 111,
+      "timestamp": "2026-11-23T02:24:42.106+0000",
+      "level": "info",
+      "logger": "taskinstance.py:3924",
+      "message": "0 downstream tasks scheduled from follow-on schedule check"
+    }
+  ],
+  "log_total_lines": 111,
+  "dag_file": "broken/python_keyerror.py",
+  "dag_source": "\"\"\"Broken DAG: code bug. Downstream task reads a key the upstream payload never had.\"\"\"\n\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"broken_python_keyerror\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"code_bug\"],\n    default_args={\"retries\": 0},\n)\ndef broken_python_keyerror():\n    @task\n    def extract_orders() -> dict:\n        return {\"order_id\": 42, \"amount\": 19.99, \"currency\": \"USD\"}\n\n    @task\n    def compute_tax(order: dict) -> float:\n        # Bug: upstream renamed \"country\" away; nobody updated this task.\n        return order[\"amount\"] * TAX_RATES[order[\"country\"]]\n\n    compute_tax(extract_orders())\n\n\nTAX_RATES = {\"US\": 0.07, \"DE\": 0.19}\n\nbroken_python_keyerror()\n",
+  "run_history": [
+    {
+      "run_id": "manual__2026-11-23T02:24:40.495154+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T02:24:41.962429Z",
+      "end_date": "2026-11-23T02:24:42.075007Z",
+      "duration_s": 0.112578,
+      "is_current": true
+    },
+    {
+      "run_id": "manual__2026-11-23T02:23:20.776329+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T02:23:21.989367Z",
+      "end_date": "2026-11-23T02:23:22.069521Z",
+      "duration_s": 0.080154,
+      "is_current": false
+    }
+  ],
+  "recent_commits": [
+    {
+      "sha": "76157f23caca4bf850813afb031bdf6e7912fd9b",
+      "author": "naresy",
+      "date": "2026-11-22T10:38:08-05:00",
+      "subject": "src section added",
+      "diff": "diff --git a/dev/dags/broken/python_keyerror.py b/dev/dags/broken/python_keyerror.py\nnew file mode 100644\nindex 0000000..1cb5c52\n--- /dev/null\n+++ b/dev/dags/broken/python_keyerror.py\n@@ -0,0 +1,31 @@\n+\"\"\"Broken DAG: code bug. Downstream task reads a key the upstream payload never had.\"\"\"\n+\n+from datetime import datetime\n+\n+from airflow.sdk import dag, task\n+\n+\n+@dag(\n+    dag_id=\"broken_python_keyerror\",\n+    schedule=None,\n+    start_date=datetime(2026, 1, 1),\n+    catchup=False,\n+    tags=[\"broken\", \"code_bug\"],\n+    default_args={\"retries\": 0},\n+)\n+def broken_python_keyerror():\n+    @task\n+    def extract_orders() -> dict:\n+        return {\"order_id\": 42, \"amount\": 19.99, \"currency\": \"USD\"}\n+\n+    @task\n+    def compute_tax(order: dict) -> float:\n+        # Bug: upstream renamed \"country\" away; nobody updated this task.\n+        return order[\"amount\"] * TAX_RATES[order[\"country\"]]\n+\n+    compute_tax(extract_orders())\n+\n+\n+TAX_RATES = {\"US\": 0.07, \"DE\": 0.19}\n+\n+broken_python_keyerror()\n",
+      "diff_truncated": false
+    }
+  ],
+  "collection_errors": [],
+  "collected_at": "2026-11-23T02:25:21.080174Z"
+}

@@ -38,9 +38,17 @@ CREATE TABLE IF NOT EXISTS jobs (
     last_error  TEXT,
     enqueued_at REAL    NOT NULL,
     updated_at  REAL    NOT NULL,
+    not_before  REAL    NOT NULL DEFAULT 0,  -- retry backoff: not claimable before this time
     UNIQUE (dag_id, run_id, task_id, try_number, map_index)
 );
+"""
+
+# Created after migrations, so they also apply to queues made by older versions.
+_INDEXES = """
 CREATE INDEX IF NOT EXISTS jobs_status ON jobs (status, id);
+-- The UNIQUE above treats NULL try_numbers as all different; this one does not.
+CREATE UNIQUE INDEX IF NOT EXISTS jobs_unique_try
+    ON jobs (dag_id, run_id, task_id, IFNULL(try_number, -1), map_index);
 """
 
 
@@ -88,6 +96,10 @@ class JobQueue:
         try:
             conn.row_factory = sqlite3.Row
             conn.executescript(_SCHEMA)
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+            if "not_before" not in columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN not_before REAL NOT NULL DEFAULT 0")
+            conn.executescript(_INDEXES)
             yield conn
         finally:
             conn.close()
@@ -137,12 +149,14 @@ class JobQueue:
         return added
 
     def claim(self) -> QueuedJob | None:
-        """Take the oldest pending job and mark it running, atomically."""
+        """Take the oldest pending job that is due, and mark it running, atomically."""
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             try:
                 row = conn.execute(
-                    "SELECT * FROM jobs WHERE status = 'pending' ORDER BY id LIMIT 1"
+                    "SELECT * FROM jobs WHERE status = 'pending' AND not_before <= ?"
+                    " ORDER BY id LIMIT 1",
+                    (time.time(),),
                 ).fetchone()
                 if row is None:
                     conn.execute("COMMIT")
@@ -170,8 +184,15 @@ class JobQueue:
     def mark_done(self, job_id: int) -> None:
         self._set_status(job_id, "done", None)
 
-    def mark_error(self, job_id: int, error: str, *, retry: bool) -> None:
+    def mark_error(self, job_id: int, error: str, *, retry: bool, retry_after_s: float = 0) -> None:
+        """retry=True puts the job back as pending, claimable after `retry_after_s`."""
         self._set_status(job_id, "pending" if retry else "error", error)
+        if retry and retry_after_s > 0:
+            with self._connect() as conn:
+                conn.execute(
+                    "UPDATE jobs SET not_before = ? WHERE id = ?",
+                    (time.time() + retry_after_s, job_id),
+                )
 
     def requeue_stale(self, older_than_s: float) -> int:
         """Return jobs stuck in 'running' (worker died) to 'pending'."""

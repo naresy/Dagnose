@@ -97,15 +97,22 @@ class AirflowClient:
             self._token = str(resp.json()["access_token"])
         return {"Authorization": f"Bearer {self._token}"} if self._token else {}
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        headers: dict[str, str] | None = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
         url = f"/api/{self.api}{path}"
+        extra = headers or {}  # e.g. Accept: text/plain for v1 logs and DAG source
         resp = self._http.request(
-            method, url, headers=self._auth_headers(), auth=self._auth(), **kwargs
+            method, url, headers={**extra, **self._auth_headers()}, auth=self._auth(), **kwargs
         )
         if resp.status_code == 401 and self.settings.airflow_username and self.api == "v2":
             # Token expired: log in again once.
             resp = self._http.request(
-                method, url, headers=self._auth_headers(refresh=True), **kwargs
+                method, url, headers={**extra, **self._auth_headers(refresh=True)}, **kwargs
             )
         if resp.status_code >= 400:
             raise AirflowAPIError(f"{method} {url} -> HTTP {resp.status_code}: {resp.text[:300]}")
@@ -166,9 +173,13 @@ class AirflowClient:
 
     def task_history(self, dag_id: str, task_id: str, limit: int) -> list[dict[str, Any]]:
         """Most recent task instances of this task across DAG runs, newest first."""
-        body: dict[str, Any] = {"dag_ids": [dag_id], "task_ids": [task_id], "page_limit": limit}
+        body: dict[str, Any] = {"dag_ids": [dag_id], "task_ids": [task_id]}
         if self.api == "v2":
-            body["order_by"] = "-start_date"
+            body.update(order_by="-start_date", page_limit=limit)
+        else:
+            # v1 cannot sort this endpoint, so the first page may hold the oldest runs.
+            # Fetch a wide page and keep the newest.
+            body["page_limit"] = max(limit, 100)
         data = self._request("POST", "/dags/~/dagRuns/~/taskInstances/list", json=body).json()
         tis: list[dict[str, Any]] = data.get("task_instances", [])
         # v1 has no order_by on this endpoint; sort here for both to be safe.

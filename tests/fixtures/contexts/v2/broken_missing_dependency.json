@@ -1,7 +1,7 @@
 {
   "job": {
     "dag_id": "broken_missing_dependency",
-    "run_id": "manual__2026-11-22T18:18:32.386660+00:00",
+    "run_id": "manual__2026-11-23T02:24:40.856445+00:00",
     "task_id": "score_customers",
     "try_number": 1,
     "map_index": -1,
@@ -12,7 +12,7 @@
   "task_state": "failed",
   "operator": "_PythonDecoratedOperator",
   "hostname": "9a8bbeb22b0e",
-  "duration_s": 0.101377,
+  "duration_s": 0.141345,
   "task_params": {
     "templates_dict": null,
     "op_args": [],
@@ -22,6 +22,7 @@
   "exceptions": [
     {
       "type": "ModuleNotFoundError",
+      "qualified_type": null,
       "message": "No module named 'polars_ml_toolkit'",
       "frames": [
         {
@@ -81,7 +82,7 @@
         },
         {
           "filename": "/opt/airflow/dags/broken/missing_dependency.py",
-          "lineno": 19,
+          "lineno": 22,
           "name": "score_customers"
         }
       ],
@@ -91,28 +92,28 @@
   "log_tail": [
     {
       "n": 1,
-      "timestamp": "2026-11-22T18:18:32.961171Z",
+      "timestamp": "2026-11-23T02:24:41.422640Z",
       "level": "info",
       "logger": "airflow.dag_processing.bundles.manager.DagBundlesManager",
       "message": "DAG bundles loaded: dags-folder"
     },
     {
       "n": 2,
-      "timestamp": "2026-11-22T18:18:32.961591Z",
+      "timestamp": "2026-11-23T02:24:41.423166Z",
       "level": "info",
       "logger": "airflow.dag_processing.dagbag.BundleDagBag",
       "message": "Filling up the DagBag from /opt/airflow/dags/broken/missing_dependency.py"
     },
     {
       "n": 3,
-      "timestamp": "2026-11-22T18:18:32.979878Z",
+      "timestamp": "2026-11-23T02:24:41.455254Z",
       "level": "info",
       "logger": "task",
       "message": "Worker startup parse complete"
     },
     {
       "n": 4,
-      "timestamp": "2026-11-22T18:18:33.005276Z",
+      "timestamp": "2026-11-23T02:24:41.488079Z",
       "level": "error",
       "logger": "task",
       "message": "Task failed with exception"
@@ -120,8 +121,17 @@
   ],
   "log_total_lines": 4,
   "dag_file": "broken/missing_dependency.py",
-  "dag_source": "\"\"\"Broken DAG: dependency. Task imports a package not installed on the worker.\"\"\"\n\nfrom datetime import datetime\n\nfrom airflow.sdk import dag, task\n\n\n@dag(\n    dag_id=\"broken_missing_dependency\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"dependency\"],\n    default_args={\"retries\": 0},\n)\ndef broken_missing_dependency():\n    @task\n    def score_customers() -> None:\n        import polars_ml_toolkit  # not in the worker image\n\n        polars_ml_toolkit.score(\"customers.parquet\")\n\n    score_customers()\n\n\nbroken_missing_dependency()\n",
+  "dag_source": "\"\"\"Broken DAG: dependency. Task imports a package not installed on the worker.\"\"\"\n\nfrom datetime import datetime\n\ntry:\n    from airflow.sdk import dag, task\nexcept ImportError:  # Airflow 2.x\n    from airflow.decorators import dag, task\n\n\n@dag(\n    dag_id=\"broken_missing_dependency\",\n    schedule=None,\n    start_date=datetime(2026, 1, 1),\n    catchup=False,\n    tags=[\"broken\", \"dependency\"],\n    default_args={\"retries\": 0},\n)\ndef broken_missing_dependency():\n    @task\n    def score_customers() -> None:\n        import polars_ml_toolkit  # not in the worker image\n\n        polars_ml_toolkit.score(\"customers.parquet\")\n\n    score_customers()\n\n\nbroken_missing_dependency()\n",
   "run_history": [
+    {
+      "run_id": "manual__2026-11-23T02:24:40.856445+00:00",
+      "state": "failed",
+      "try_number": 1,
+      "start_date": "2026-11-23T02:24:41.354593Z",
+      "end_date": "2026-11-23T02:24:41.495938Z",
+      "duration_s": 0.141345,
+      "is_current": true
+    },
     {
       "run_id": "manual__2026-11-22T18:18:32.386660+00:00",
       "state": "failed",
@@ -129,7 +139,7 @@
       "start_date": "2026-11-22T18:18:32.910586Z",
       "end_date": "2026-11-22T18:18:33.011963Z",
       "duration_s": 0.101377,
-      "is_current": true
+      "is_current": false
     },
     {
       "run_id": "manual__2026-11-22T17:07:36.331491+00:00",
@@ -161,5 +171,5 @@
     }
   ],
   "collection_errors": [],
-  "collected_at": "2026-11-22T19:21:58.630872Z"
+  "collected_at": "2026-11-23T02:25:18.314839Z"
 }
