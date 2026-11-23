@@ -1,5 +1,5 @@
 """The Doctor worker: a separate process that takes failure jobs off the queue and runs
-the pipeline: collect -> redact -> save context -> diagnose -> save diagnosis.
+the pipeline: collect -> redact -> save context -> diagnose -> save diagnosis -> notify.
 
 Only redacted data is ever written to disk; the raw context lives in memory only.
 """
@@ -22,6 +22,7 @@ from airflow_doctor.agent import (
 from airflow_doctor.collector import AirflowAPIError, AirflowClient, collect
 from airflow_doctor.config import Settings
 from airflow_doctor.models import DiagnosisRun, FailureJob, RedactedContext
+from airflow_doctor.notifier import channels_configured, notify
 from airflow_doctor.queue import JobQueue, QueuedJob
 from airflow_doctor.redactor import RedactionSession, Redactor
 
@@ -77,8 +78,14 @@ def process(qjob: QueuedJob, client: AirflowClient, settings: Settings) -> Path:
     if redacted.redactions:
         log.info("job %s: redacted %s", qjob.id, redacted.summary())
     path = save_context(redacted, settings.contexts_dir)
+    run: DiagnosisRun | None = None
+    reason: str | None = "diagnosis is turned off"
     if settings.diagnose:
-        run_diagnosis(qjob.id, redacted, client, session, settings)
+        run, reason = run_diagnosis(qjob.id, redacted, client, session, settings)
+    if channels_configured(settings):
+        report = notify(redacted, run, settings, session=session, reason=reason, name=path.name)
+        if report.sent:
+            log.info("job %s: notified %s", qjob.id, ", ".join(report.sent))
     return path
 
 
@@ -88,9 +95,10 @@ def run_diagnosis(
     client: AirflowClient,
     session: RedactionSession,
     settings: Settings,
-) -> DiagnosisRun | None:
-    """Diagnose and save. A config problem (no credentials) or a bad answer is logged
-    and skipped, so the saved context is not lost; an outage is re-raised to retry."""
+) -> tuple[DiagnosisRun | None, str | None]:
+    """Diagnose and save. Returns (run, None) or (None, why there is no diagnosis).
+    A config problem (no credentials) or a bad answer is logged and skipped, so the
+    saved context is not lost; an outage is re-raised so the job is retried."""
     try:
         provider = make_provider(settings)
         run = diagnose(
@@ -98,10 +106,10 @@ def run_diagnosis(
         )
     except ProviderConfigError as exc:
         log.warning("job %s: diagnosis skipped: %s", job_id, exc)
-        return None
+        return None, str(exc)
     except DiagnosisError as exc:
         log.warning("job %s: no diagnosis: %s", job_id, exc)
-        return None
+        return None, str(exc)
     except ProviderError:
         raise
     path = save_diagnosis(run, settings.diagnoses_dir)
@@ -110,7 +118,7 @@ def run_diagnosis(
         "job %s: %s (%.2f, evidence %d/%d) -> %s",
         job_id, d.category, d.confidence, run.evidence_verified, run.evidence_total, path,
     )  # fmt: skip
-    return run
+    return run, None
 
 
 def run(settings: Settings, *, once: bool = False, poll_interval_s: float = 2.0) -> int:

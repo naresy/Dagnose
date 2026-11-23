@@ -16,7 +16,7 @@ When an Airflow task fails, engineers lose hours digging through logs, DAG code 
 4. **Recall:** it searches local incident memory for similar past failures, using an error fingerprint plus embeddings.
 5. **Diagnose:** an LLM gets the redacted context with numbered log and DAG source lines, plus read-only tools (`list_run_tasks`, `get_task_log` for upstream tasks or the last successful run; `get_table_schema` and `search_past_incidents` come later). It returns structured JSON: summary, category, root cause, evidence quotes, confidence, fix and an optional patch. Every evidence quote is checked against the context, and confidence is capped when the evidence does not check out. Tool results are redacted with the same placeholders before the model sees them.
 6. **Fix:** if a code fix applies, it opens a pull request through the GitHub or GitLab API. It never touches production.
-7. **Notify:** it posts a Slack or email card with the diagnosis, evidence, a PR link, and buttons for correct, wrong and retry.
+7. **Notify:** it posts a Slack and/or email card with the diagnosis, checked evidence (✅ found in the logs / ❔ not found), the suggested fix and an "Open in Airflow" link. Cards carry only redacted text and short quotes, never raw logs, and are redacted once more before sending. Without a diagnosis the card still shows the error, where it failed and why it was not diagnosed. Failed deliveries go to an outbox (`airflow-doctor outbox --resend`) instead of re-running the pipeline. PR links and correct / wrong / retry buttons come with steps 5 and 6.
 8. **Learn:** feedback and final fixes are saved to memory, so later diagnoses improve.
 
 ```
@@ -44,7 +44,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 | `memory` | SQLite + sqlite-vec incident store, error fingerprints, embeddings |
 | `agent` | Diagnosis loop, read-only tools, evidence check; provider interface with an Anthropic adapter |
 | `fixer` | Branch and PR creation (GitHub / GitLab) |
-| `notifier` | Slack and email cards |
+| `notifier` | Slack (Block Kit, incoming webhook) and email (SMTP) cards, retries, outbox |
 | `cli` | `airflow-doctor` commands: setup, test, replay a failure |
 
 ## Tech stack
@@ -64,7 +64,10 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 pip install airflow-doctor
 export AIRFLOW_DOCTOR_LLM_MODEL="claude-opus-5-5"   # default; other providers planned
 export AIRFLOW_DOCTOR_LLM_API_KEY="..."               # or ANTHROPIC_API_KEY, or `ant auth login`
-export AIRFLOW_DOCTOR_SLACK_WEBHOOK="..."
+export AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+# and/or email:
+# export AIRFLOW_DOCTOR_SMTP_HOST=smtp.example.com AIRFLOW_DOCTOR_EMAIL_FROM=doctor@example.com
+# export AIRFLOW_DOCTOR_EMAIL_TO='["oncall@example.com"]'   # JSON list; also SMTP_PORT/_USERNAME/_PASSWORD/_SECURITY
 airflow-doctor setup
 ```
 
@@ -92,6 +95,8 @@ uv run airflow-doctor collect <dag_id> <run_id> <task_id>   # one failure, redac
 uv run airflow-doctor redact <context.json>                 # redact a saved context, summary on stderr
 uv run airflow-doctor diagnose <context.json>               # diagnose a saved context (calls the model API)
 uv run python dev/diagnose_fixtures.py --yes-spend          # score the model on the 6 recorded failures (paid)
+uv run airflow-doctor notify <context.json> --dry-run       # preview the Slack and email card
+uv run airflow-doctor outbox [--resend]                     # notifications that could not be delivered
 uv run python dev/record_fixtures.py      # refresh recorded API traffic + contexts in tests/fixtures/
 ```
 
@@ -113,7 +118,7 @@ AIRFLOW_DOCTOR_AIRFLOW_URL=http://localhost:8081 uv run python dev/record_fixtur
 
 | When | Workflow | What runs |
 |---|---|---|
-| Every PR and push to `main` | [ci.yml](.github/workflows/ci.yml) | ruff + strict mypy; unit tests on Python 3.10–3.13 (coverage ≥ 85%); **e2e on real Airflow 3 and Airflow 2** in Docker (`dev/e2e.py`: fail the broken DAGs, check listener → worker → collector); build the wheel and smoke test it in a clean venv |
+| Every PR and push to `main` | [ci.yml](.github/workflows/ci.yml) | ruff + strict mypy; unit tests on Python 3.10–3.13 (coverage ≥ 85%); **e2e on real Airflow 3 and Airflow 2** in Docker (`dev/e2e.py`: fail the broken DAGs, check listener → worker → collect → redact → Slack card against a local fake webhook); build the wheel and smoke test it in a clean venv |
 | Push a tag `vX.Y.Z` | [release.yml](.github/workflows/release.yml) | everything above, then check the tag matches `pyproject.toml`, publish to PyPI (trusted publishing), create a GitHub release |
 | Weekly | [dependabot.yml](.github/dependabot.yml) | grouped update PRs for Python deps and Actions |
 
@@ -123,7 +128,7 @@ Run the e2e check locally the same way CI does: start a stack, then `uv run pyth
 
 We build one piece at a time, and each piece is tested before the next one starts.
 
-**Status:** steps 1 and 2 done, plus CI/CD. Step 3 is built and tested offline; its first live run needs an API key.
+**Status:** steps 1, 2 and 4 done, plus CI/CD. Step 3 is built and tested offline; its first live run needs an API key. **Next: step 5, incident memory.**
 
 - [x] **0. Foundation:** project scaffold, local Airflow 3 and 2 in Docker, 5 broken DAGs, CI/CD pipeline (lint, types, tests on Python 3.10–3.13, e2e on real Airflow 2 and 3, build, release to PyPI)
 - [x] **1. Collector:** capture real failure data from a local Airflow (Docker Compose + broken DAGs)
@@ -137,8 +142,11 @@ We build one piece at a time, and each piece is tested before the next one start
   - Claude via the Anthropic SDK behind a provider interface; strict tools, structured output, refusal fallback, prompt caching
   - evidence quotes checked against the context; confidence capped when they do not check out
   - without credentials the worker still collects and redacts, and skips the diagnosis
-- [ ] **4. Slack notifier:** diagnosis card with evidence
-- [ ] **5. Incident memory:** SQLite + embeddings, "seen this before"
+- [x] **4. Slack notifier:** diagnosis card with evidence
+  - Slack (incoming webhook) and email (SMTP); redacted again before sending; retries, then an outbox
+  - e2e on real Airflow 2 and 3: one card per failure, no planted secret in any card
+  - feedback buttons (correct / wrong / retry) need a Slack app endpoint: step 5
+- [ ] **5. Incident memory:** SQLite + embeddings, "seen this before" ← **next**
 - [ ] **6. Fix PRs:** GitHub / GitLab pull requests
 - [ ] **7. Eval set:** 30 failure cases, accuracy tracking
 - [ ] **8. Launch:** docs, 60-second demo video, Hacker News, r/dataengineering, Airflow Slack, LinkedIn

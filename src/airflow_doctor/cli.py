@@ -173,6 +173,76 @@ def diagnose_cmd(
     )
 
 
+@app.command("notify")
+def notify_cmd(
+    path: Annotated[Path, typer.Argument(help="A saved context JSON file.", exists=True)],
+    diagnosis: Annotated[
+        Optional[Path],  # noqa: UP045
+        typer.Option(help="DiagnosisRun JSON. Default: same file name under diagnoses/."),
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Print the Slack and email messages, send nothing.")
+    ] = False,
+) -> None:
+    """Send (or preview) the notification card for one saved failure."""
+    import json
+
+    from airflow_doctor.config import Settings
+    from airflow_doctor.models import DiagnosisRun, FailureContext
+    from airflow_doctor.notifier import build_card, notify
+    from airflow_doctor.notifier.mail import email_subject, email_text
+    from airflow_doctor.notifier.slack import slack_payload
+    from airflow_doctor.redactor import Redactor
+
+    settings = Settings()
+    session = Redactor.from_settings(settings).session()
+    ctx = session.redact(FailureContext.model_validate_json(path.read_text()))
+    diag_path = diagnosis or path.parent.parent / "diagnoses" / path.name
+    run = DiagnosisRun.model_validate_json(diag_path.read_text()) if diag_path.exists() else None
+    reason = None if run else f"no diagnosis file ({diag_path})"
+    if dry_run:
+        ui = settings.airflow_ui_url or settings.airflow_url
+        card = build_card(ctx, run, ui_url=ui, reason=reason, session=session)
+        typer.echo("--- Slack payload")
+        typer.echo(json.dumps(slack_payload(card), indent=2, ensure_ascii=False))
+        typer.echo(f"--- Email: {email_subject(card)}")
+        typer.echo(email_text(card))
+        return
+    report = notify(ctx, run, settings, session=session, reason=reason, name=path.name)
+    if not report.sent and not report.failed:
+        typer.echo("no channel configured (AIRFLOW_DOCTOR_SLACK_WEBHOOK_URL / SMTP_*)", err=True)
+        raise typer.Exit(2)
+    for channel in report.sent:
+        typer.echo(f"sent: {channel}")
+    for channel, error in report.failed.items():
+        typer.echo(f"failed: {channel}: {error} (saved to outbox)", err=True)
+    if report.failed:
+        raise typer.Exit(1)
+
+
+@app.command()
+def outbox(
+    resend: Annotated[bool, typer.Option("--resend", help="Try to send them again.")] = False,
+) -> None:
+    """Notifications that could not be delivered."""
+    import json
+
+    from airflow_doctor.config import Settings
+    from airflow_doctor.notifier import resend_outbox
+
+    settings = Settings()
+    if resend:
+        report = resend_outbox(settings)
+        typer.echo(f"resent {len(report.sent)}, still failing {len(report.failed)}")
+        for name, error in report.failed.items():
+            typer.echo(f"  {name}: {error}", err=True)
+        raise typer.Exit(1 if report.failed else 0)
+    items = sorted(settings.outbox_dir.glob("*.json")) if settings.outbox_dir.is_dir() else []
+    typer.echo(f"{settings.outbox_dir}: {len(items)} waiting")
+    for item in items:
+        typer.echo(f"  {item.name}: {json.loads(item.read_text()).get('error', '')}")
+
+
 @app.command()
 def worker(
     once: Annotated[bool, typer.Option(help="Exit when the queue is empty.")] = False,

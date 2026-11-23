@@ -41,6 +41,9 @@ _SKIP_KEYS = frozenset(
 _CODE_KEYS = frozenset({"dag_source", "diff"})
 # Fields holding names of people.
 _PERSON_KEYS = frozenset({"author"})
+# Known secret values shorter than this are not replaced by plain string match, so a
+# short value (a 3-letter pin) cannot wipe out unrelated words.
+MIN_KNOWN_VALUE = 6
 # Free-form user data: a sensitive-looking key redacts its whole value.
 _PARAM_ROOTS = frozenset({"task_params", "run_conf"})
 
@@ -107,6 +110,9 @@ class Redactor:
             else None
         )
         walked = self._walk(data, "", state, people_re, in_params=False)
+        # Second pass: a secret found in a later field may also appear, unlabelled, in
+        # an earlier one. Placeholders are left alone, so this is cheap and idempotent.
+        walked = self._walk(walked, "", state, people_re, in_params=False)
         redacted = RedactedContext.model_validate({**walked, "redactions": state.redactions})
         return redacted, people_re
 
@@ -146,7 +152,7 @@ class Redactor:
                 for i, v in enumerate(node)
             ]
         if isinstance(node, str):
-            if key in _PERSON_KEYS and self.redact_people and node:
+            if key in _PERSON_KEYS and self.redact_people and not is_placeholder_or_empty(node):
                 return state.placeholder("person", node, path)
             return self.redact_text(node, path, state, people_re, code=key in _CODE_KEYS)
         return node
@@ -173,6 +179,17 @@ class Redactor:
             text = self._sub(extra, 0, "custom", text, path, state)
         if people_re is not None:
             text = self._sub(people_re, 0, "person", text, path, state)
+        return self._known_values(text, path, state)
+
+    def _known_values(self, text: str, path: str, state: _State) -> str:
+        """Replace any value already identified as a secret in this job, wherever and
+        however it appears again (e.g. a password found in a URL, later printed bare)."""
+        for value, placeholder in sorted(
+            state.placeholders.items(), key=lambda item: len(item[0]), reverse=True
+        ):
+            if _replaceable(value) and value in text:
+                text = text.replace(value, placeholder)
+                state.placeholder("", value, path)  # record the extra location
         return text
 
     def _allowed(self, value: str) -> bool:
@@ -220,6 +237,14 @@ class Redactor:
             return state.placeholder("high_entropy", token, path)
 
         return TOKEN_RE.sub(replace, text)
+
+
+def _replaceable(value: str) -> bool:
+    """Safe to replace by plain string match: long enough, and not an ordinary word
+    (a param like api_token="default" must not wipe out every "default" in the logs)."""
+    if len(value) < MIN_KNOWN_VALUE:
+        return False
+    return len(value) >= 12 or not value.replace(" ", "").isalpha()
 
 
 def _inside_placeholder(m: re.Match[str]) -> bool:

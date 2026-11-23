@@ -14,7 +14,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +55,51 @@ def wait_for(what: str, check: Any, timeout_s: float, every_s: float = 3.0) -> A
             last_error = exc
         time.sleep(every_s)
     raise SystemExit(f"[e2e] timed out after {timeout_s:.0f}s waiting for {what} ({last_error})")
+
+
+class FakeSlack:
+    """A local stand-in for a Slack incoming webhook that records every message."""
+
+    def __init__(self) -> None:
+        self.payloads: list[dict[str, Any]] = []
+        received = self.payloads
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:  # noqa: N802 - http.server API
+                body = self.rfile.read(int(self.headers.get("content-length", 0)))
+                received.append(json.loads(body))
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"ok")
+
+            def log_message(self, *args: Any) -> None:
+                pass
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.server.server_address[1]}/services/e2e"
+
+    def card_for(self, dag_id: str, task_id: str, run_id: str) -> dict[str, Any] | None:
+        for p in self.payloads:
+            header = p["blocks"][0]["text"]["text"]
+            if header == f"{dag_id}.{task_id} failed" and run_id in json.dumps(p):
+                return p
+        return None
+
+
+def check_card(card: dict[str, Any] | None, expected: dict[str, Any]) -> list[str]:
+    if card is None:
+        return ["no Slack card was sent"]
+    problems = []
+    text = json.dumps(card, ensure_ascii=False)
+    leaks = [s for s in expected.get("must_not_leak", []) if s in text]
+    if leaks:
+        problems.append(f"secrets leaked into the Slack card: {len(leaks)}")
+    if expected["exception"] not in text:
+        problems.append("Slack card does not show the exception")
+    if not any(b["type"] == "actions" for b in card["blocks"]):
+        problems.append("Slack card has no 'Open in Airflow' button")
+    return problems
 
 
 class Airflow:
@@ -175,6 +222,7 @@ def main() -> int:
             raise SystemExit(f"[e2e] {dag_id} ended as {state}, expected failed")
     log("all runs failed as expected")
 
+    slack = FakeSlack()
     settings = Settings(
         airflow_url=str(target["url"]),
         airflow_username=USER,
@@ -183,6 +231,7 @@ def main() -> int:
         git_repo_path=ROOT,
         git_dags_subdir="dev/dags",
         diagnose=False,  # e2e checks collect + redact; never spend model tokens here
+        slack_webhook_url=slack.url,
     )
 
     def collected() -> dict[str, RedactedContext] | None:
@@ -200,7 +249,9 @@ def main() -> int:
 
     failures = 0
     for dag_id, expected in EXPECTED.items():
-        problems = check_context(contexts[dag_id], expected, api, args.airflow)
+        ctx = contexts[dag_id]
+        problems = check_context(ctx, expected, api, args.airflow)
+        problems += check_card(slack.card_for(dag_id, ctx.job.task_id, ctx.job.run_id), expected)
         exc = contexts[dag_id].exception
         status = "ok  " if not problems else "FAIL"
         summary = contexts[dag_id].summary()
@@ -211,7 +262,10 @@ def main() -> int:
     if failures:
         log(f"{failures} of {len(EXPECTED)} failed")
         return 1
-    log(f"all {len(EXPECTED)} failures collected correctly on Airflow {args.airflow}")
+    log(
+        f"all {len(EXPECTED)} failures collected, redacted and sent to Slack correctly "
+        f"on Airflow {args.airflow}"
+    )
     return 0
 
 

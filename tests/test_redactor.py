@@ -275,3 +275,28 @@ def test_recorded_failures(path: Path) -> None:
         assert r.exception == raw.exception
         assert r.dag_source == raw.dag_source
         assert [x.message for x in r.log_tail] == [x.message for x in raw.log_tail]
+
+
+def test_secret_seen_once_is_replaced_everywhere() -> None:
+    """A password found inside a URL is also removed where it appears bare, even in an
+    earlier field, and even in later text redacted with the same session."""
+    secret = "Sup3r-S3cret-Pw"
+    c = ctx(
+        f"login failed, password {secret} rejected",  # no label: no pattern matches this
+        f"connect postgresql://etl:{secret}@db:5432/x",  # found here
+    )
+    session = Redactor().session()
+    r = session.redact(c)
+    assert [x.message for x in r.log_tail] == [
+        "login failed, password [REDACTED:password#1] rejected",
+        "connect postgresql://etl:[REDACTED:password#1]@db:5432/x",
+    ]
+    assert session.redact_text(f"retry with {secret}", "tool") == "retry with [REDACTED:password#1]"
+
+
+def test_ordinary_words_are_not_replaced_by_value() -> None:
+    """api_token="default" must not blank out every "default" in the logs."""
+    c = ctx("using default settings", task_params={"op_kwargs": {"api_token": "default"}})
+    r = redact(c)
+    assert r.task_params["op_kwargs"]["api_token"] == "[REDACTED:secret_param#1]"
+    assert r.log_tail[0].message == "using default settings"
