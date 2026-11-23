@@ -1,5 +1,5 @@
 """The Doctor worker: a separate process that takes failure jobs off the queue and runs
-the pipeline. So far: collect -> redact, then save the RedactedContext as JSON.
+the pipeline: collect -> redact -> save context -> diagnose -> save diagnosis.
 
 Only redacted data is ever written to disk; the raw context lives in memory only.
 """
@@ -11,11 +11,19 @@ import re
 import time
 from pathlib import Path
 
+from airflow_doctor.agent import (
+    DiagnosisError,
+    ProviderConfigError,
+    ProviderError,
+    ToolBox,
+    diagnose,
+    make_provider,
+)
 from airflow_doctor.collector import AirflowAPIError, AirflowClient, collect
 from airflow_doctor.config import Settings
-from airflow_doctor.models import FailureJob, RedactedContext
+from airflow_doctor.models import DiagnosisRun, FailureJob, RedactedContext
 from airflow_doctor.queue import JobQueue, QueuedJob
-from airflow_doctor.redactor import Redactor
+from airflow_doctor.redactor import RedactionSession, Redactor
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +51,13 @@ def save_context(ctx: RedactedContext, out_dir: Path) -> Path:
     return path
 
 
+def save_diagnosis(run: DiagnosisRun, out_dir: Path) -> Path:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / context_filename(run.job)
+    path.write_text(run.model_dump_json(indent=2))
+    return path
+
+
 def process(qjob: QueuedJob, client: AirflowClient, settings: Settings) -> Path:
     # model_validate lets pydantic parse failed_at (accepts "Z" on every Python version).
     job = FailureJob.model_validate(
@@ -56,10 +71,46 @@ def process(qjob: QueuedJob, client: AirflowClient, settings: Settings) -> Path:
         }
     )
     raw = collect(job, client, settings)
-    redacted = Redactor.from_settings(settings).redact(raw)
+    session = Redactor.from_settings(settings).session()
+    redacted = session.redact(raw)
+    del raw  # only the redacted context goes anywhere from here
     if redacted.redactions:
         log.info("job %s: redacted %s", qjob.id, redacted.summary())
-    return save_context(redacted, settings.contexts_dir)
+    path = save_context(redacted, settings.contexts_dir)
+    if settings.diagnose:
+        run_diagnosis(qjob.id, redacted, client, session, settings)
+    return path
+
+
+def run_diagnosis(
+    job_id: int,
+    ctx: RedactedContext,
+    client: AirflowClient,
+    session: RedactionSession,
+    settings: Settings,
+) -> DiagnosisRun | None:
+    """Diagnose and save. A config problem (no credentials) or a bad answer is logged
+    and skipped, so the saved context is not lost; an outage is re-raised to retry."""
+    try:
+        provider = make_provider(settings)
+        run = diagnose(
+            ctx, provider, ToolBox(ctx, client, session), max_turns=settings.llm_max_turns
+        )
+    except ProviderConfigError as exc:
+        log.warning("job %s: diagnosis skipped: %s", job_id, exc)
+        return None
+    except DiagnosisError as exc:
+        log.warning("job %s: no diagnosis: %s", job_id, exc)
+        return None
+    except ProviderError:
+        raise
+    path = save_diagnosis(run, settings.diagnoses_dir)
+    d = run.diagnosis
+    log.info(
+        "job %s: %s (%.2f, evidence %d/%d) -> %s",
+        job_id, d.category, d.confidence, run.evidence_verified, run.evidence_total, path,
+    )  # fmt: skip
+    return run
 
 
 def run(settings: Settings, *, once: bool = False, poll_interval_s: float = 2.0) -> int:
@@ -80,7 +131,7 @@ def run(settings: Settings, *, once: bool = False, poll_interval_s: float = 2.0)
                 continue
             try:
                 path = process(qjob, client, settings)
-            except AirflowAPIError as exc:  # Airflow unreachable / auth: worth retrying
+            except (AirflowAPIError, ProviderError) as exc:  # outage: worth retrying
                 retry = qjob.attempts < MAX_ATTEMPTS
                 delay = retry_delay_s(qjob.attempts)
                 queue.mark_error(qjob.id, str(exc), retry=retry, retry_after_s=delay)

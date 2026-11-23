@@ -182,6 +182,7 @@ def main() -> int:
         home=Path(target["home"]),
         git_repo_path=ROOT,
         git_dags_subdir="dev/dags",
+        diagnose=False,  # e2e checks collect + redact; never spend model tokens here
     )
 
     def collected() -> dict[str, RedactedContext] | None:

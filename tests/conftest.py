@@ -51,6 +51,8 @@ def make_settings(tmp_path: Path) -> Any:
             "airflow_username": "airflow",
             "airflow_password": "airflow",
             "home": tmp_path / "doctor-home",
+            # Never call a real model from tests (a dev machine may have a key set).
+            "diagnose": False,
         }
         values.update(overrides)
         return Settings(**values)

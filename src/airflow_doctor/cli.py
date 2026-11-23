@@ -108,6 +108,71 @@ def redact(
     _echo_summary(redacted.summary())
 
 
+@app.command("diagnose")
+def diagnose_cmd(
+    path: Annotated[Path, typer.Argument(help="A FailureContext JSON file.", exists=True)],
+    tools: Annotated[
+        bool,
+        typer.Option(help="Let the model read more from Airflow (needs AIRFLOW_DOCTOR_AIRFLOW_*)."),
+    ] = True,
+    out: Annotated[
+        Optional[Path], typer.Option(help="Also write the DiagnosisRun JSON here.")  # noqa: UP045
+    ] = None,
+) -> None:
+    """Diagnose a saved failure context with the configured LLM (calls the model API)."""
+    from airflow_doctor.agent import (
+        DiagnosisError,
+        ProviderError,
+        ToolBox,
+        diagnose,
+        make_provider,
+    )
+    from airflow_doctor.collector import AirflowClient
+    from airflow_doctor.config import Settings
+    from airflow_doctor.models import FailureContext
+    from airflow_doctor.redactor import Redactor
+
+    settings = Settings()
+    ctx = FailureContext.model_validate_json(path.read_text())
+    session = Redactor.from_settings(settings).session()
+    redacted = session.redact(ctx)  # idempotent: a saved context is already redacted
+    client = AirflowClient(settings) if tools else None
+    try:
+        run = diagnose(
+            redacted,
+            make_provider(settings),
+            ToolBox(redacted, client, session),
+            max_turns=settings.llm_max_turns,
+        )
+    except (ProviderError, DiagnosisError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    finally:
+        if client is not None:
+            client.close()
+    if out:
+        out.write_text(run.model_dump_json(indent=2))
+    d = run.diagnosis
+    typer.echo(f"{d.category} (confidence {d.confidence:.2f}): {d.summary}")
+    typer.echo(f"root cause: {d.root_cause}")
+    for ev in d.evidence:
+        mark = "ok" if ev.verified else "??"
+        where = f"{ev.source}:{ev.line}" if ev.line is not None else ev.source
+        typer.echo(f"  [{mark}] {where}: {ev.quote}")
+    if d.suggested_fix:
+        typer.echo(f"fix: {d.suggested_fix}")
+    if d.patch:
+        typer.echo(d.patch)
+    u = run.usage
+    typer.echo(
+        f"{run.served_model or run.model}, {run.turns} turn(s), "
+        f"{len(run.tool_calls)} tool call(s), "
+        f"{u.input_tokens}+{u.cache_read_input_tokens} cached in / {u.output_tokens} out tokens, "
+        f"evidence {run.evidence_verified}/{run.evidence_total} verified",
+        err=True,
+    )
+
+
 @app.command()
 def worker(
     once: Annotated[bool, typer.Option(help="Exit when the queue is empty.")] = False,

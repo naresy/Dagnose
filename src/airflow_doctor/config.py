@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     redact_allow_patterns: list[str] = Field(default_factory=list)  # never redact these
     redact_people: bool = True  # git author names
 
+    # Diagnosis (LLM). Without credentials the worker still collects and redacts.
+    diagnose: bool = True
+    llm_provider: Literal["anthropic"] = "anthropic"
+    llm_model: str = "claude-opus-5-5"  # or "anthropic/claude-opus-5-5"
+    llm_api_key: SecretStr | None = None  # else ANTHROPIC_API_KEY / `ant auth login`
+    llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+    llm_max_turns: int = 6
+    llm_fallbacks: bool = True  # server-side fallback model if Claude declines
+
     home: Path = Field(default_factory=default_home)
 
     @property
@@ -53,3 +62,7 @@ class Settings(BaseSettings):
     @property
     def contexts_dir(self) -> Path:
         return self.home / "contexts"
+
+    @property
+    def diagnoses_dir(self) -> Path:
+        return self.home / "diagnoses"

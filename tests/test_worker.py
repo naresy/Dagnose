@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -59,3 +60,80 @@ def test_worker_saves_only_redacted_context(
     ):
         assert secret not in text
     assert '"redactions"' in text and "[REDACTED:password#1]" in text
+
+
+def _leaky_job(
+    make_settings: Any, monkeypatch: pytest.MonkeyPatch, **settings_overrides: Any
+) -> Any:
+    from tests.conftest import FIXTURES, ReplayTransport, load_recording
+
+    rec = load_recording(FIXTURES / "api" / "v2" / "broken_leaky_credentials.json")
+    settings = make_settings(**settings_overrides)
+    job = rec["job"]
+    JobQueue(settings.queue_path).enqueue(
+        job["dag_id"], job["run_id"], job["task_id"], job["try_number"]
+    )
+    real_client = airflow_api.AirflowClient
+    monkeypatch.setattr(
+        worker,
+        "AirflowClient",
+        lambda s: real_client(s, transport=ReplayTransport(rec["exchanges"])),
+    )
+    return settings
+
+
+def test_worker_saves_diagnosis(make_settings: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    from tests.test_agent import ScriptedProvider, answer
+
+    settings = _leaky_job(make_settings, monkeypatch, diagnose=True)
+    fake = ScriptedProvider([answer(category="permissions", evidence=[])])
+    monkeypatch.setattr(worker, "make_provider", lambda s: fake)
+
+    assert worker.run(settings, once=True) == 1
+    [saved] = list(settings.diagnoses_dir.glob("*.json"))
+    run = json.loads(saved.read_text())
+    assert run["diagnosis"]["category"] == "permissions"
+    assert run["job"]["dag_id"] == "broken_leaky_credentials"
+    # The model only ever saw the redacted context.
+    assert "Sup3r-S3cret-Pw" not in fake.started["prompt"]
+    assert "[REDACTED:password#1]" in fake.started["prompt"]
+    assert JobQueue(settings.queue_path).counts() == {"done": 1}
+
+
+def test_worker_without_credentials_still_saves_context(
+    make_settings: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from airflow_doctor.agent import ProviderConfigError
+
+    settings = _leaky_job(make_settings, monkeypatch, diagnose=True)
+
+    def no_key(s: Any) -> Any:
+        raise ProviderConfigError("no credentials")
+
+    monkeypatch.setattr(worker, "make_provider", no_key)
+    assert worker.run(settings, once=True) == 1
+    assert len(list(settings.contexts_dir.glob("*.json"))) == 1
+    assert not settings.diagnoses_dir.exists()
+    assert JobQueue(settings.queue_path).counts() == {"done": 1}
+
+
+def test_worker_retries_when_the_model_is_down(
+    make_settings: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from airflow_doctor.agent import ProviderError
+    from airflow_doctor.agent.provider import Turn
+
+    settings = _leaky_job(make_settings, monkeypatch, diagnose=True)
+
+    class Down:
+        name, model = "down", "m"
+
+        def start(self, **kwargs: Any) -> Any:
+            return self
+
+        def send(self, *args: Any, **kwargs: Any) -> Turn:
+            raise ProviderError("overloaded")
+
+    monkeypatch.setattr(worker, "make_provider", lambda s: Down())
+    assert worker.run(settings, once=True) == 1
+    assert JobQueue(settings.queue_path).counts() == {"pending": 1}  # retried later, not lost

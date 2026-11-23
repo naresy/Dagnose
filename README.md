@@ -14,7 +14,7 @@ When an Airflow task fails, engineers lose hours digging through logs, DAG code 
 2. **Collect:** a separate `airflow-doctor worker` process moves spool files into its own SQLite queue (only the worker touches it), then reads everything through the Airflow REST API (`/api/v2` on 3.x, `/api/v1` on 2.x). It gathers the log tail, the exception and stack trace, the DAG source, task params, the last N runs, and recent git commits that touched the DAG.
 3. **Redact:** it replaces secrets with placeholders like `[REDACTED:password#1]` before anything reaches a model or disk: passwords in connection strings, `password=`/`token=`/`api_key=` values, known token formats (AWS, GitHub, Slack, Stripe, Google, OpenAI, Anthropic, JWT, private keys), emails, unlabelled high-entropy keys, sensitive task params and git author names. The same value always gets the same placeholder, so the model can still see that one secret appears in two places. Redaction is one-way: originals are never stored.
 4. **Recall:** it searches local incident memory for similar past failures, using an error fingerprint plus embeddings.
-5. **Diagnose:** an LLM with read-only tools (`get_log`, `get_dag_source`, `get_run_history`, `get_table_schema`, `search_past_incidents`) returns structured JSON with the summary, root cause, evidence lines, confidence and fix.
+5. **Diagnose:** an LLM gets the redacted context with numbered log and DAG source lines, plus read-only tools (`list_run_tasks`, `get_task_log` for upstream tasks or the last successful run; `get_table_schema` and `search_past_incidents` come later). It returns structured JSON: summary, category, root cause, evidence quotes, confidence, fix and an optional patch. Every evidence quote is checked against the context, and confidence is capped when the evidence does not check out. Tool results are redacted with the same placeholders before the model sees them.
 6. **Fix:** if a code fix applies, it opens a pull request through the GitHub or GitLab API. It never touches production.
 7. **Notify:** it posts a Slack or email card with the diagnosis, evidence, a PR link, and buttons for correct, wrong and retry.
 8. **Learn:** feedback and final fixes are saved to memory, so later diagnoses improve.
@@ -42,7 +42,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 | `collector` | REST API client (v2 / v1), log and metadata readers, git history |
 | `redactor` | Secret scrubbing: token formats, credential URLs, sensitive keys, emails, entropy, people |
 | `memory` | SQLite + sqlite-vec incident store, error fingerprints, embeddings |
-| `agent` | LLM loop with tool calling, through LiteLLM |
+| `agent` | Diagnosis loop, read-only tools, evidence check; provider interface with an Anthropic adapter |
 | `fixer` | Branch and PR creation (GitHub / GitLab) |
 | `notifier` | Slack and email cards |
 | `cli` | `airflow-doctor` commands: setup, test, replay a failure |
@@ -50,7 +50,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 ## Tech stack
 
 - **Core:** Python 3.10+, `uv`, Apache Airflow 2.x/3.x plugin and listener API
-- **LLM:** LiteLLM (OpenAI, Anthropic, or local through Ollama), Pydantic for structured output
+- **LLM:** official Anthropic SDK (Claude Opus 5.5 by default: structured outputs, strict tools, prompt caching, refusal fallback) behind a small provider interface; OpenAI and local (Ollama) adapters can be added without touching the agent. Pydantic for the diagnosis schema
 - **Security:** own redaction detectors (known token formats, credential URLs, sensitive keys, emails, entropy), tuned to keep diagnostic evidence such as hosts, ids and class names
 - **Memory:** SQLite with `sqlite-vec`, `fastembed` for local embeddings
 - **Integrations:** PyGithub, python-gitlab, Slack SDK, SMTP
@@ -62,8 +62,8 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 
 ```bash
 pip install airflow-doctor
-export AIRFLOW_DOCTOR_LLM_MODEL="anthropic/claude-sonnet-5-5"   # or openai/..., ollama/...
-export AIRFLOW_DOCTOR_LLM_API_KEY="..."
+export AIRFLOW_DOCTOR_LLM_MODEL="claude-opus-5-5"   # default; other providers planned
+export AIRFLOW_DOCTOR_LLM_API_KEY="..."               # or ANTHROPIC_API_KEY, or `ant auth login`
 export AIRFLOW_DOCTOR_SLACK_WEBHOOK="..."
 airflow-doctor setup
 ```
@@ -90,6 +90,8 @@ uv run airflow-doctor worker --once       # spool -> queue -> collect -> dev/doc
 uv run airflow-doctor queue               # job counts by status
 uv run airflow-doctor collect <dag_id> <run_id> <task_id>   # one failure, redacted JSON to stdout (--raw: unredacted)
 uv run airflow-doctor redact <context.json>                 # redact a saved context, summary on stderr
+uv run airflow-doctor diagnose <context.json>               # diagnose a saved context (calls the model API)
+uv run python dev/diagnose_fixtures.py --yes-spend          # score the model on the 6 recorded failures (paid)
 uv run python dev/record_fixtures.py      # refresh recorded API traffic + contexts in tests/fixtures/
 ```
 
@@ -121,7 +123,7 @@ Run the e2e check locally the same way CI does: start a stack, then `uv run pyth
 
 We build one piece at a time, and each piece is tested before the next one starts.
 
-**Status:** steps 1 and 2 done, plus CI/CD. **Next: step 3, the diagnosis agent.**
+**Status:** steps 1 and 2 done, plus CI/CD. Step 3 is built and tested offline; its first live run needs an API key.
 
 - [x] **0. Foundation:** project scaffold, local Airflow 3 and 2 in Docker, 5 broken DAGs, CI/CD pipeline (lint, types, tests on Python 3.10–3.13, e2e on real Airflow 2 and 3, build, release to PyPI)
 - [x] **1. Collector:** capture real failure data from a local Airflow (Docker Compose + broken DAGs)
@@ -131,7 +133,10 @@ We build one piece at a time, and each piece is tested before the next one start
 - [x] **2. Redactor:** secret scrubbing with tests
   - placeholders keep evidence (hosts, users, ids, failing lines); the worker writes only redacted data
   - checked on real Airflow 2 and 3: planted fake secrets never reach the saved context, and clean failures lose nothing but author names
-- [ ] **3. Diagnosis agent:** LLM + read-only tools, structured JSON output ← **next**
+- [ ] **3. Diagnosis agent:** LLM + read-only tools, structured JSON output ← **built, tested offline; live run pending an API key**
+  - Claude via the Anthropic SDK behind a provider interface; strict tools, structured output, refusal fallback, prompt caching
+  - evidence quotes checked against the context; confidence capped when they do not check out
+  - without credentials the worker still collects and redacts, and skips the diagnosis
 - [ ] **4. Slack notifier:** diagnosis card with evidence
 - [ ] **5. Incident memory:** SQLite + embeddings, "seen this before"
 - [ ] **6. Fix PRs:** GitHub / GitLab pull requests
