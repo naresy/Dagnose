@@ -126,6 +126,8 @@ def build_card(
         ("Try", str(job.try_number)),
         ("Airflow", ctx.airflow_version or "?"),
     ]
+    if job.map_index >= 0:
+        card.facts.insert(2, ("Map index", str(job.map_index)))
     if ctx.duration_s is not None:
         card.facts.append(("Duration", f"{ctx.duration_s:.1f}s"))
 

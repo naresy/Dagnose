@@ -20,6 +20,10 @@ def main(verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False) -> N
         level=logging.INFO if verbose else logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    # httpx logs every request URL at INFO. Webhook URLs (Slack, Teams, Google Chat)
+    # are secrets, and container logs often go to a shared log service.
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)
 
 
 @app.command()
@@ -386,8 +390,15 @@ def worker(
 
 
 @app.command()
-def queue() -> None:
-    """Show job counts by status."""
+def queue(
+    last: Annotated[int, typer.Option("--last", "-n", help="Recent jobs to list (0: none).")] = 10,
+    dag: Annotated[
+        Optional[str], typer.Option("--dag", help="Only jobs of this DAG.")  # noqa: UP045
+    ] = None,
+) -> None:
+    """Show job counts by status and the most recent jobs."""
+    import time
+
     from dagnose.config import Settings
     from dagnose.queue import JobQueue
 
@@ -398,6 +409,20 @@ def queue() -> None:
     typer.echo(f"{settings.queue_path}")
     for status in ("pending", "running", "done", "error"):
         typer.echo(f"  {status:8} {counts.get(status, 0)}")
+    jobs = q.recent(last, dag_id=dag) if last > 0 else []
+    if jobs:
+        typer.echo("")
+        typer.echo(f"  {'id':>5}  {'status':7}  {'updated':8}  {'try':>3}  {'map':>3}  task / run")
+    for j in jobs:
+        updated = time.strftime("%H:%M:%S", time.localtime(j["updated_at"]))
+        mapped = str(j["map_index"]) if j["map_index"] >= 0 else "-"
+        tried = str(j["try_number"]) if j["try_number"] is not None else "?"
+        typer.echo(
+            f"  {j['id']:>5}  {j['status']:7}  {updated:8}  {tried:>3}  {mapped:>3}"
+            f"  {j['dag_id']}.{j['task_id']}  {j['run_id']}"
+        )
+        if j["status"] == "error" and j["last_error"]:
+            typer.echo(f"         error: {' '.join(j['last_error'].split())[:160]}")
 
 
 if __name__ == "__main__":

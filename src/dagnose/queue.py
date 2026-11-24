@@ -222,6 +222,19 @@ class JobQueue:
             rows = conn.execute("SELECT status, COUNT(*) FROM jobs GROUP BY status").fetchall()
         return {status: n for status, n in rows}
 
+    def recent(self, limit: int = 10, dag_id: str | None = None) -> list[dict[str, Any]]:
+        """The most recently updated jobs, newest first."""
+        sql = (
+            "SELECT id, dag_id, task_id, run_id, try_number, map_index, status, attempts,"
+            " last_error, updated_at FROM jobs"
+        )
+        args: tuple[Any, ...] = ()
+        if dag_id:
+            sql, args = sql + " WHERE dag_id = ?", (dag_id,)
+        with self._connect() as conn:
+            rows = conn.execute(sql + " ORDER BY updated_at DESC, id DESC LIMIT ?", (*args, limit))
+            return [dict(r) for r in rows.fetchall()]
+
     def _set_status(self, job_id: int, status: str, error: str | None) -> None:
         with self._connect() as conn:
             conn.execute(
