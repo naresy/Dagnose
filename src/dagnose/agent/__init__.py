@@ -23,20 +23,16 @@ __all__ = [
 
 
 def make_provider(settings: Settings) -> LLMProvider:
-    """Build the configured provider. Model may be "claude-opus-5-5" or
-    "anthropic/claude-opus-5-5"; only Anthropic is implemented so far."""
-    provider, _, model = settings.llm_model.rpartition("/")
-    provider = provider or settings.llm_provider
-    if provider != "anthropic":
-        raise ProviderConfigError(
-            f"LLM provider {provider!r} is not supported yet (supported: anthropic)"
-        )
+    """Claude on the configured platform: the Claude API, Bedrock, Vertex AI or Foundry.
+    The model may also carry the platform, e.g. "bedrock/claude-opus-5-5"."""
     from dagnose.agent.anthropic_provider import AnthropicProvider
+    from dagnose.agent.clients import build_client
 
-    key = settings.llm_api_key.get_secret_value() if settings.llm_api_key else None
+    choice = build_client(settings)
     return AnthropicProvider(
-        model,
-        api_key=key,
+        choice.model,
+        client=choice.client,
         effort=settings.llm_effort,
-        fallbacks=settings.llm_fallbacks,
+        fallbacks=choice.fallbacks,
+        name=choice.provider,
     )

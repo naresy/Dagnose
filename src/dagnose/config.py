@@ -64,9 +64,18 @@ class Settings(BaseSettings):
 
     # Diagnosis (LLM). Without credentials the worker still collects and redacts.
     diagnose: bool = True
-    llm_provider: Literal["anthropic"] = "anthropic"
-    llm_model: str = "claude-opus-5-5"  # or "anthropic/claude-opus-5-5"
-    llm_api_key: SecretStr | None = None  # else ANTHROPIC_API_KEY / `ant auth login`
+    # Where Claude runs. "anthropic": the Claude API. "bedrock": Amazon Bedrock (AWS
+    # credentials). "vertex": Google Vertex AI (Google credentials). "foundry": Microsoft
+    # Foundry (API key or Entra ID). With bedrock/vertex/foundry, prompts stay in your cloud.
+    llm_provider: Literal["anthropic", "bedrock", "vertex", "foundry"] = "anthropic"
+    llm_model: str = "claude-opus-5-5"  # or "<provider>/claude-opus-5-5"
+    llm_api_key: SecretStr | None = None  # Claude API or Foundry key; else ANTHROPIC_API_KEY
+    llm_region: str | None = (
+        None  # Bedrock: AWS region (default DAGNOSE_AWS_REGION); Vertex: "global"
+    )
+    llm_project: str | None = None  # Vertex: Google Cloud project id
+    llm_foundry_resource: str | None = None  # Foundry: the resource name
+    llm_azure_scope: str = "https://cognitiveservices.azure.com/.default"  # Foundry with Entra ID
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
     llm_max_turns: int = 6
     llm_fallbacks: bool = True  # server-side fallback model if Claude declines

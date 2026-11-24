@@ -52,7 +52,7 @@ Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, th
 ## Tech stack
 
 - **Core:** Python 3.10+, `uv`, Apache Airflow 2.x/3.x plugin and listener API
-- **LLM:** official Anthropic SDK (Claude Opus 5.5 by default: structured outputs, strict tools, prompt caching, refusal fallback) behind a small provider interface; OpenAI and local (Ollama) adapters can be added without touching the agent. Pydantic for the diagnosis schema
+- **LLM:** official Anthropic SDK (Claude Opus 5.5 by default: structured outputs, strict tools, prompt caching, refusal fallback) behind a small provider interface. The same Claude also runs inside your own cloud: Amazon Bedrock, Google Vertex AI or Microsoft Foundry (`DAGNOSE_LLM_PROVIDER`). OpenAI and local (Ollama) adapters can be added without touching the agent. Pydantic for the diagnosis schema
 - **Security:** own redaction detectors (known token formats, credential URLs, sensitive keys, emails, entropy), tuned to keep diagnostic evidence such as hosts, ids and class names
 - **Memory:** SQLite with `sqlite-vec`, `fastembed` for local embeddings
 - **Integrations:** PyGithub, python-gitlab, Slack SDK, SMTP

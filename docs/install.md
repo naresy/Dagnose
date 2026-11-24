@@ -183,6 +183,20 @@ DAGNOSE_AIRFLOW_URL=https://...
 DAGNOSE_AZURE_SCOPE=<application-id-uri>/.default
 ```
 
+### The model inside your own cloud
+
+By default Dagnose calls the Claude API. To keep even the (redacted) prompts inside your
+cloud account, run Claude on your cloud's AI platform instead. The diagnosis is the same;
+only the automatic fallback model is unavailable there.
+
+| Cloud | Settings | Access needed |
+|---|---|---|
+| AWS: Amazon Bedrock | `DAGNOSE_LLM_PROVIDER=bedrock`, `DAGNOSE_LLM_REGION=us-east-1` (or `DAGNOSE_AWS_REGION`) | Model access to Claude Opus 5.5 in Bedrock; the AWS credentials Dagnose runs with |
+| Google Cloud: Vertex AI | `DAGNOSE_LLM_PROVIDER=vertex`, `DAGNOSE_LLM_PROJECT=my-project` (region `global` by default) | Claude enabled in Vertex AI Model Garden; `roles/aiplatform.user` |
+| Azure: Microsoft Foundry | `DAGNOSE_LLM_PROVIDER=foundry`, `DAGNOSE_LLM_FOUNDRY_RESOURCE=my-resource`, and `DAGNOSE_LLM_API_KEY`, or no key to use Entra ID | A Claude deployment in your Foundry resource |
+
+`dagnose check` verifies the model access for free (token counting) on all of them.
+
 ### Astronomer
 
 Use a Deployment API token as `DAGNOSE_AIRFLOW_TOKEN` with the deployment's URL
