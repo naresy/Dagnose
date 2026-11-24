@@ -105,6 +105,12 @@ def build_card(
         summary = safe(f"{exc.type}: {exc.message}", 500)
     elif log_problem:
         summary = safe(f"The task failed, but its log could not be read: {log_problem}", 500)
+    elif last_error := next(
+        (ln.message for ln in reversed(ctx.log_tail) if ln.level in ("error", "critical")), None
+    ):
+        # No exception, e.g. a task killed by a signal (out of memory): Airflow's own last
+        # error line says the most ("Process terminated by signal. Likely out of memory").
+        summary = safe(f"The task failed without an exception. Last error: {last_error}", 500)
     else:
         summary = "The task failed; no exception was found in the log."
     card = Card(

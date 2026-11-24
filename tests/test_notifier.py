@@ -329,3 +329,28 @@ def test_failed_delivery_goes_to_outbox_and_resends(
     assert list(settings.outbox_dir.iterdir()) == []
     assert hook.bodies[0]["blocks"][0]["text"]["text"] == "demo_crm_session_sync.sync_crm failed"
     assert smtp.sent[0]["Subject"].startswith("[Dagnose] demo_crm_session_sync.sync_crm")
+
+
+def test_card_without_exception_shows_the_last_error_line() -> None:
+    """A task killed by a signal (out of memory) has no exception; Airflow's last
+    critical line explains it."""
+    from dagnose.models import LogLine
+
+    ctx = load(KEYERROR_V2)
+    ctx.exceptions = []
+    ctx.log_tail = [
+        LogLine(
+            n=4, level="info", logger="task.stdout", message="loading 40M rows into memory ..."
+        ),
+        LogLine(
+            n=5,
+            level="critical",
+            logger="task",
+            message="Process terminated by signal. Likely out of memory error (OOM).",
+        ),
+    ]
+    card = build_card(ctx, None, ui_url=None, reason="off")
+    assert card.summary == (
+        "The task failed without an exception. Last error: "
+        "Process terminated by signal. Likely out of memory error (OOM)."
+    )

@@ -283,6 +283,83 @@ def check(
 
 
 @app.command()
+def review(
+    show_report: Annotated[
+        bool, typer.Option("--report", help="Summarise all reviews instead of reviewing.")
+    ] = False,
+    out: Annotated[
+        Optional[Path], typer.Option(help="With --report: also write it here.")  # noqa: UP045
+    ] = None,
+) -> None:
+    """Grade new diagnoses (category, root cause, fix), or report the results."""
+    from dagnose import review as rv
+    from dagnose.config import Settings
+    from dagnose.models import DiagnosisRun
+
+    home = Settings().home
+    if show_report:
+        text = rv.report(rv.load_reviews(home))
+        typer.echo(text)
+        if out:
+            out.write_text(text)
+        return
+    todo = rv.pending(home)
+    if not todo:
+        typer.echo("Nothing to review. New diagnoses appear here after failures are diagnosed.")
+        return
+    typer.echo(f"{len(todo)} diagnosis(es) to review. Answer s to skip one, q to stop.\n")
+    for i, path in enumerate(todo, 1):
+        run = DiagnosisRun.model_validate_json(path.read_text())
+        typer.echo(f"--- {i}/{len(todo)} " + "-" * 60)
+        for line in rv.run_summary(run):
+            typer.echo(line)
+        typer.echo("")
+        cat = _ask("Category correct?", ["yes", "no", "unsure"])
+        if cat in ("skip", "quit"):
+            if cat == "quit":
+                break
+            continue
+        root = _ask("Root cause?", ["correct", "partly", "wrong"])
+        fix = _ask("Suggested fix?", ["useful", "partly", "wrong", "none"])
+        if "quit" in (root, fix) or "skip" in (root, fix):
+            if "quit" in (root, fix):
+                break
+            continue
+        real = typer.prompt(
+            "Real cause, in a few words (Enter to leave empty)", default="", show_default=False
+        )
+        notes = typer.prompt("Notes (Enter to leave empty)", default="", show_default=False)
+        answers = {
+            "category_correct": cat,
+            "root_cause": root,
+            "fix": fix,
+            "real_cause": real,
+            "notes": notes,
+        }
+        rv.save_review(home, rv.make_review(path, run, answers))
+        typer.echo("saved\n")
+    typer.echo(f"Reviews are in {rv.reviews_path(home)}. Summary: dagnose review --report")
+
+
+def _ask(question: str, choices: list[str]) -> str:
+    """Accept a choice or its first letter; s = skip, q = quit."""
+    letters = {c[0]: c for c in choices}
+    assert len(letters) == len(choices), "choices must start with different letters"
+    hint = " / ".join(f"[{c[0]}]{c[1:]}" for c in choices)
+    while True:
+        answer = str(typer.prompt(f"{question} {hint}")).strip().lower()
+        if answer in ("s", "skip"):
+            return "skip"
+        if answer in ("q", "quit"):
+            return "quit"
+        if answer in choices:
+            return answer
+        if answer in letters:
+            return letters[answer]
+        typer.echo(f"  please answer one of: {', '.join(choices)} (or s, q)")
+
+
+@app.command()
 def worker(
     once: Annotated[bool, typer.Option(help="Exit when the queue is empty.")] = False,
 ) -> None:

@@ -37,7 +37,8 @@ loaded from `src/`:
 | 3.3 | `cd dev && docker compose up -d` | http://localhost:8080 | airflow / airflow |
 | 2.11 | `cd dev/airflow2 && docker compose up -d` | http://localhost:8081 | airflow / airflow |
 
-`dev/dags/demo/` holds DAGs that fail on purpose. They are written like ordinary
+`dev/dags/demo/` holds DAGs that fail on purpose, and `dev/dags/scenarios/` holds edge cases
+(retries, a mapped task, a very long log, a killed task) used by the [testing plan](docs/testing.md). They are written like ordinary
 pipelines, so their names and comments do not give the cause away; what each one does
 wrong is in [dev/dags/demo/README.md](dev/dags/demo/README.md). One of them leaks fake
 credentials to test redaction. What each DAG must produce is in
@@ -73,6 +74,7 @@ uv run python dev/e2e.py --airflow 2
 |---|---|
 | `dev/record_fixtures.py` | Record API traffic and contexts from a running Airflow into `tests/fixtures/` |
 | `dev/diagnose_fixtures.py --yes-spend` | Score the real model on the recorded failures. Calls the model API and costs money |
+| `dev/trigger.py DAG_ID [--times N]` | Trigger DAG runs on any Airflow 2 or 3 (needs a user that may trigger) |
 | `dev/scan_secrets.py` | Fail if a real-looking key is in the files git would commit (also runs in CI) |
 
 ## Project layout
