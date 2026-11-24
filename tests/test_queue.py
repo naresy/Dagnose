@@ -131,3 +131,17 @@ def test_upgrades_queue_from_older_schema(tmp_path: Path) -> None:
     q = JobQueue(path)
     job = q.claim()
     assert job is not None and job.run_id == "r"
+
+
+def test_recent_lists_newest_first_and_filters_by_dag(tmp_path: Path) -> None:
+    q = JobQueue(tmp_path / "q.db")
+    q.enqueue("d", "r1", "t", 1)
+    q.enqueue("other", "r2", "t", 3, map_index=1)
+    job = q.claim()
+    assert job is not None
+    q.mark_error(job.id, "airflow down", retry=False)
+    rows = q.recent(10)
+    assert [r["dag_id"] for r in rows] == ["d", "other"]  # the errored job was updated last
+    assert rows[0]["status"] == "error" and rows[0]["last_error"] == "airflow down"
+    assert [r["map_index"] for r in q.recent(10, dag_id="other")] == [1]
+    assert len(q.recent(1)) == 1

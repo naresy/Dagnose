@@ -148,6 +148,15 @@ def test_airflow_links(fixture: Path, expected: str) -> None:
     )
 
 
+def test_mapped_task_card_names_the_map_index() -> None:
+    ctx = load(KEYERROR_V2)
+    ctx.job.map_index = 1
+    card = build_card(ctx, None, ui_url="http://ui.test")
+    assert ("Map index", "1") in card.facts
+    assert "/mapped/1?" in (card.airflow_url or "")
+    assert "Map index" not in dict(build_card(load(KEYERROR_V2), None, ui_url=None).facts)
+
+
 # ---- slack --------------------------------------------------------------------------
 
 
