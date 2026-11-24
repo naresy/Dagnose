@@ -1,6 +1,6 @@
 # Dagnose
 
-[![ci](https://github.com/naresy/airflow_doctor/actions/workflows/ci.yml/badge.svg)](https://github.com/naresy/airflow_doctor/actions/workflows/ci.yml)
+[![ci](https://github.com/naresy/dagnose/actions/workflows/ci.yml/badge.svg)](https://github.com/naresy/dagnose/actions/workflows/ci.yml)
 
 **The open source AI on-call engineer for Apache Airflow.** *Dagnose* (DAG + diagnose) diagnoses failed tasks with evidence, suggests fixes as pull requests, and remembers past incidents. Self-hosted, and you bring your own LLM key.
 
