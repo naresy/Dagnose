@@ -18,7 +18,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /wheels /wheels
-RUN pip install --no-cache-dir /wheels/*.whl && rm -rf /wheels \
+# All cloud extras, so one image works on AWS (MWAA, Bedrock), Google Cloud (Composer,
+# Vertex AI) and Azure (Entra ID, Foundry).
+RUN whl=$(ls /wheels/*.whl) && pip install --no-cache-dir "${whl}[aws,gcp,azure]" && rm -rf /wheels \
     && useradd --create-home --uid 50000 dagnose \
     && mkdir -p /data && chown dagnose /data
 USER dagnose

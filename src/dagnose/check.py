@@ -62,7 +62,12 @@ def _airflow(settings: Settings, transport: httpx.BaseTransport | None) -> Itera
             yield Result("Airflow login", "skip", "needs the Airflow API")
             yield Result("Finding failures", "skip", "needs the Airflow API")
             return
-        yield Result("Airflow API", "ok", f"{url} · Airflow {version} · REST API {api}")
+        via = {
+            "mwaa": f"AWS MWAA environment {settings.mwaa_environment} (InvokeRestApi)",
+            "google": f"{url} with Google credentials (Cloud Composer)",
+            "azure": f"{url} with an Entra ID token",
+        }.get(settings.airflow_auth, url)
+        yield Result("Airflow API", "ok", f"{via} · Airflow {version} · REST API {api}")
 
         try:
             client._get("/dags", params={"limit": 1})

@@ -13,12 +13,26 @@ from urllib.parse import quote
 
 import httpx
 
+from dagnose.collector import cloud
 from dagnose.config import Settings
 from dagnose.models import ApiVersion, FailureJob
 
 
 class AirflowAPIError(RuntimeError):
     pass
+
+
+def _text_or_json_content(resp: httpx.Response) -> str:
+    """Airflow 2 sends logs and DAG source as text when asked; some gateways (MWAA's
+    InvokeRestApi) always answer JSON, as {"content": ...}."""
+    if "json" not in resp.headers.get("content-type", ""):
+        return resp.text
+    content = resp.json().get("content", "")
+    if isinstance(content, list):  # [(host, text), ...] from older log handlers
+        return "\n".join(
+            str(part[-1]) if isinstance(part, (list, tuple)) else str(part) for part in content
+        )
+    return str(content)
 
 
 def _seg(value: str) -> str:
@@ -29,8 +43,17 @@ def _seg(value: str) -> str:
 class AirflowClient:
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None) -> None:
         self.settings = settings
+        base_url = settings.airflow_url
+        self._cloud_auth: httpx.Auth | None = None
+        if transport is None:  # tests pass their own transport
+            try:
+                base_url, transport, self._cloud_auth = cloud.connect(settings)
+            except cloud.CloudSetupError as exc:
+                raise AirflowAPIError(str(exc)) from exc
+        elif settings.airflow_auth == "mwaa":
+            base_url = cloud.MWAA_BASE_URL
         self._http = httpx.Client(
-            base_url=settings.airflow_url.rstrip("/"),
+            base_url=base_url.rstrip("/"),
             timeout=settings.request_timeout_s,
             verify=settings.airflow_verify_ssl,
             transport=transport,
@@ -68,9 +91,10 @@ class AirflowClient:
         return self._version
 
     def _detect(self) -> None:
-        # /version needs no auth on either API version.
+        # /version needs no auth on self-hosted Airflow, but managed Airflow (Composer,
+        # Fabric) authenticates every request, so the cloud login goes along.
         for api in ("v2", "v1"):
-            resp = self._http.get(f"/api/{api}/version")
+            resp = self._http.get(f"/api/{api}/version", auth=self._cloud_auth)
             if resp.status_code == 200:
                 self._api = api
                 self._version = str(resp.json().get("version"))
@@ -80,6 +104,8 @@ class AirflowClient:
         )
 
     def _auth(self) -> httpx.Auth | None:
+        if self._cloud_auth is not None:
+            return self._cloud_auth
         s = self.settings
         if self._token is None and self.api == "v1" and s.airflow_username:
             password = s.airflow_password.get_secret_value() if s.airflow_password else ""
@@ -88,6 +114,8 @@ class AirflowClient:
 
     def _auth_headers(self, refresh: bool = False) -> dict[str, str]:
         s = self.settings
+        if s.airflow_auth != "password":
+            return {}  # the cloud login (transport or auth) authenticates every request
         if self.api == "v2" and s.airflow_username and (self._token is None or refresh):
             password = s.airflow_password.get_secret_value() if s.airflow_password else ""
             resp = self._http.post(
@@ -110,7 +138,8 @@ class AirflowClient:
         resp = self._http.request(
             method, url, headers={**extra, **self._auth_headers()}, auth=self._auth(), **kwargs
         )
-        if resp.status_code == 401 and self.settings.airflow_username and self.api == "v2":
+        password_login = self.settings.airflow_auth == "password" and self.settings.airflow_username
+        if resp.status_code == 401 and password_login and self.api == "v2":
             # Token expired: log in again once.
             resp = self._http.request(
                 method, url, headers={**extra, **self._auth_headers(refresh=True)}, **kwargs
@@ -153,7 +182,8 @@ class AirflowClient:
             params["map_index"] = job.map_index
         path = f"{base}/logs/{try_number}"
         if self.api == "v1":
-            return self._request("GET", path, params=params, headers={"Accept": "text/plain"}).text
+            resp = self._request("GET", path, params=params, headers={"Accept": "text/plain"})
+            return _text_or_json_content(resp)
         content = self._get(path, params=params).get("content", [])
         if isinstance(content, str):  # some log handlers return one text blob
             return content
@@ -171,7 +201,7 @@ class AirflowClient:
         if not token:
             raise AirflowAPIError(f"DAG {dag_id} has no file_token")
         resp = self._request("GET", f"/dagSources/{token}", headers={"Accept": "text/plain"})
-        return resp.text
+        return _text_or_json_content(resp)
 
     def failed_task_instances(
         self,

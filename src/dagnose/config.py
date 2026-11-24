@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     airflow_password: SecretStr | None = None
     airflow_token: SecretStr | None = None  # use instead of username/password
     airflow_api: Literal["auto", "v1", "v2"] = "auto"  # auto: v2 (Airflow 3), else v1 (2.x)
+    # How to log into Airflow. "password": username/password or airflow_token (self-hosted,
+    # Astronomer). "mwaa": AWS IAM through MWAA InvokeRestApi (pip install 'dagnose[aws]').
+    # "google": Google credentials for Cloud Composer ('dagnose[gcp]'). "azure": a Microsoft
+    # Entra ID token ('dagnose[azure]'), e.g. Airflow in Microsoft Fabric.
+    airflow_auth: Literal["password", "mwaa", "google", "azure"] = "password"
+    mwaa_environment: str | None = None  # MWAA environment name
+    aws_region: str | None = None  # default: the AWS SDK's region (AWS_REGION, profile)
+    azure_scope: str | None = None  # Entra ID scope of the Airflow API, e.g. "<app-id>/.default"
     airflow_verify_ssl: bool = True
     airflow_dags_folder: str = "/opt/airflow/dags"  # to make 2.x file paths relative
     request_timeout_s: float = 30.0
