@@ -218,9 +218,7 @@ def _llm(settings: Settings, provider_factory: Callable[[Settings], Any] | None)
         return Result(
             "LLM", "warn", str(exc), "The model API is unreachable right now; try again later."
         )
-    return Result(
-        "LLM", "ok", f"{provider.name}, {provider.model}, key accepted (no tokens spent)"
-    )
+    return Result("LLM", "ok", f"{provider.name}, {provider.model}, key accepted (no tokens spent)")
 
 
 def _slack(settings: Settings, send_test: bool, transport: httpx.BaseTransport | None) -> Result:
