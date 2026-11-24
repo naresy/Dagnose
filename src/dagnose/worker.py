@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dagnose.agent import (
@@ -21,7 +22,8 @@ from dagnose.agent import (
 )
 from dagnose.collector import AirflowAPIError, AirflowClient, collect
 from dagnose.config import Settings
-from dagnose.models import DiagnosisRun, FailureJob, RedactedContext
+from dagnose.incidents import Incident, IncidentStore, fingerprint
+from dagnose.models import DiagnosisRun, FailureJob, RedactedContext, Usage
 from dagnose.notifier import channels_configured, notify
 from dagnose.queue import JobQueue, QueuedJob
 from dagnose.redactor import RedactionSession, Redactor
@@ -79,15 +81,72 @@ def process(qjob: QueuedJob, client: AirflowClient, settings: Settings) -> Path:
     if redacted.redactions:
         log.info("job %s: redacted %s", qjob.id, redacted.summary())
     path = save_context(redacted, settings.contexts_dir)
+
+    store = IncidentStore(settings.queue_path)
+    window_s = settings.dedupe_window_hours * 3600
+    fp = fingerprint(redacted)
+    incident = (
+        store.record(redacted, window_s=window_s)
+        if window_s > 0
+        else Incident(fp, 1, time.time(), None, None, 0, is_new=True)
+    )
+
     run: DiagnosisRun | None = None
     reason: str | None = "diagnosis is turned off"
     if settings.diagnose:
-        run, reason = run_diagnosis(qjob.id, redacted, client, session, settings)
+        if incident.diagnosis_path:
+            run = reuse_diagnosis(Path(incident.diagnosis_path), redacted, fp)
+            save_diagnosis(run, settings.diagnoses_dir)
+            log.info("job %s: same failure seen %d×, diagnosis reused", qjob.id, incident.count)
+        elif store.take_model_call(settings.max_diagnoses_per_hour):
+            run, reason = run_diagnosis(qjob.id, redacted, client, session, settings, fp)
+            if run is not None and window_s > 0:
+                store.save_diagnosis(fp, settings.diagnoses_dir / context_filename(run.job))
+        else:
+            reason = (
+                f"the limit of {settings.max_diagnoses_per_hour} diagnoses per hour was "
+                "reached (DAGNOSE_MAX_DIAGNOSES_PER_HOUR)"
+            )
+            log.warning("job %s: %s", qjob.id, reason)
+
     if channels_configured(settings):
-        report = notify(redacted, run, settings, session=session, reason=reason, name=path.name)
+        due = (
+            incident.is_new
+            or incident.last_notified_at is None
+            or time.time() - incident.last_notified_at >= settings.renotify_minutes * 60
+        )
+        if not due:
+            store.mark_suppressed(fp)
+            log.info(
+                "job %s: same failure %d×, card skipped (renotify later)", qjob.id, incident.count
+            )
+            return path
+        report = notify(
+            redacted, run, settings, session=session, reason=reason, name=path.name,
+            occurrence=incident.count, first_seen=incident.first_seen,
+        )  # fmt: skip
         if report.sent:
+            if window_s > 0:
+                store.mark_notified(fp)
             log.info("job %s: notified %s", qjob.id, ", ".join(report.sent))
     return path
+
+
+def reuse_diagnosis(path: Path, ctx: RedactedContext, fp: str) -> DiagnosisRun:
+    """The earlier diagnosis of the same failure, for this job, at no model cost."""
+    earlier = DiagnosisRun.model_validate_json(path.read_text())
+    return earlier.model_copy(
+        update={
+            "job": ctx.job,
+            "fingerprint": fp,
+            "reused_from": earlier.reused_from or earlier.job.run_id,
+            "usage": Usage(),
+            "turns": 0,
+            "tool_calls": [],
+            "duration_s": 0.0,
+            "created_at": datetime.now(timezone.utc),
+        }
+    )
 
 
 def run_diagnosis(
@@ -96,6 +155,7 @@ def run_diagnosis(
     client: AirflowClient,
     session: RedactionSession,
     settings: Settings,
+    fp: str | None = None,
 ) -> tuple[DiagnosisRun | None, str | None]:
     """Diagnose and save. Returns (run, None) or (None, why there is no diagnosis).
     A config problem (no credentials) or a bad answer is logged and skipped, so the
@@ -113,6 +173,7 @@ def run_diagnosis(
         return None, str(exc)
     except ProviderError:
         raise
+    run.fingerprint = fp
     path = save_diagnosis(run, settings.diagnoses_dir)
     d = run.diagnosis
     log.info(

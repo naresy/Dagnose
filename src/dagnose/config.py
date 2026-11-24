@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     llm_max_turns: int = 6
     llm_fallbacks: bool = True  # server-side fallback model if Claude declines
 
+    # Repeats and cost. The same failure (same fingerprint) within the window reuses its
+    # diagnosis instead of calling the model again, and gets a "still failing" card at
+    # most every renotify_minutes. 0 turns dedupe off. The hourly cap bounds model spend.
+    dedupe_window_hours: float = 24
+    renotify_minutes: float = 60
+    max_diagnoses_per_hour: int = 20  # 0: no limit
+
     # Notifications. Cards carry only redacted text and short quotes, never raw logs.
     airflow_ui_url: str | None = None  # links in cards; default: airflow_url
     slack_webhook_url: SecretStr | None = None
