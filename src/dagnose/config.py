@@ -83,6 +83,8 @@ class Settings(BaseSettings):
     # Notifications. Cards carry only redacted text and short quotes, never raw logs.
     airflow_ui_url: str | None = None  # links in cards; default: airflow_url
     slack_webhook_url: SecretStr | None = None
+    teams_webhook_url: SecretStr | None = None  # Teams Workflows "post to a channel" webhook
+    google_chat_webhook_url: SecretStr | None = None  # Google Chat space webhook
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_security: Literal["starttls", "ssl", "none"] = "starttls"

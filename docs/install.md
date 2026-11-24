@@ -103,6 +103,8 @@ docker compose exec dagnose ls /data/contexts /data/diagnoses
 |---|---|
 | Git history in diagnoses ("this broke after commit abc123") | Mount a clone of your DAG repo, e.g. `- ./:/repo:ro`, and set `DAGNOSE_GIT_REPO_PATH=/repo` and `DAGNOSE_GIT_DAGS_SUBDIR=dags` |
 | Only some DAGs | `DAGNOSE_WATCH_DAG_IDS=["sales_daily","finance_close"]` |
+| Microsoft Teams | In the channel, Workflows → "Post to a channel when a webhook request is received"; set `DAGNOSE_TEAMS_WEBHOOK_URL` to its URL |
+| Google Chat | In the space, Apps & integrations → Webhooks; set `DAGNOSE_GOOGLE_CHAT_WEBHOOK_URL` |
 | Email instead of / as well as Slack | `DAGNOSE_SMTP_HOST`, `_SMTP_PORT`, `_SMTP_USERNAME`, `_SMTP_PASSWORD`, `_EMAIL_FROM`, `_EMAIL_TO=["oncall@example.com"]` |
 | Instant detection (seconds, not 30 s) | Install the plugin into your Airflow image (`pip install dagnose`), share a folder between Airflow and the worker at `DAGNOSE_HOME`, and set `DAGNOSE_WATCH=both` |
 | No diagnosis, just collect + notify | `DAGNOSE_DIAGNOSE=false` |

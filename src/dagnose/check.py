@@ -43,6 +43,8 @@ def run_checks(
     yield _git(settings)
     yield _llm(settings, provider_factory)
     yield _slack(settings, send_test, transport)
+    yield _chat_webhook(settings, "Microsoft Teams", "teams_webhook_url", send_test, transport)
+    yield _chat_webhook(settings, "Google Chat", "google_chat_webhook_url", send_test, transport)
     yield _email(settings, send_test, smtp_factory)
     yield _redaction()
 
@@ -243,6 +245,43 @@ def _slack(settings: Settings, send_test: bool, transport: httpx.BaseTransport |
             "Check the webhook URL and that the Slack app is still installed.",
         )
     return Result("Slack", "ok", "test message sent")
+
+
+def _chat_webhook(
+    settings: Settings,
+    service: str,
+    setting: str,
+    send_test: bool,
+    transport: httpx.BaseTransport | None,
+) -> Result:
+    from dagnose.notifier.chat import google_chat_payload, teams_payload
+    from dagnose.notifier.slack import NotifyError, send_webhook
+
+    secret = getattr(settings, setting)
+    env = "DAGNOSE_" + setting.upper()
+    if not secret:
+        return Result(service, "skip", f"not configured (optional: {env})")
+    if not send_test:
+        return Result(service, "ok", "configured · run with --send-test to post a test message")
+    from datetime import datetime, timezone
+
+    from dagnose.models import FailureContext, FailureJob
+    from dagnose.notifier.card import build_card
+    from dagnose.redactor import Redactor
+
+    sample = Redactor().redact(
+        FailureContext(job=FailureJob(dag_id="dagnose", run_id="test", task_id="check"),
+                       collected_at=datetime.now(timezone.utc))
+    )  # fmt: skip
+    card = build_card(sample, None, ui_url=None, reason="this is a test message from dagnose check")
+    payload = teams_payload(card) if setting == "teams_webhook_url" else google_chat_payload(card)
+    try:
+        send_webhook(
+            service, secret.get_secret_value(), payload, transport=transport, sleep=lambda s: None
+        )
+    except NotifyError as exc:
+        return Result(service, "fail", str(exc), f"Check {env}.")
+    return Result(service, "ok", "test message sent")
 
 
 def _email(settings: Settings, send_test: bool, smtp_factory: Callable[..., Any] | None) -> Result:
