@@ -161,6 +161,7 @@ The PyPI package and the container image are published from release v0.1.0 onwar
 
 Deployment guides: [Docker Compose and managed Airflow](docs/install.md),
 [Kubernetes, ECS, Cloud Run, Container Apps](docs/deploy-cloud.md).
+To evaluate Dagnose on your own Airflow, follow the [testing plan](docs/testing.md).
 
 ## Configuration
 
@@ -205,6 +206,7 @@ are described in [docs/install.md](docs/install.md#managed-airflow-aws-google-cl
 | `dagnose diagnose FILE` | Diagnose a saved failure context (calls the model) |
 | `dagnose notify FILE [--dry-run]` | Send or preview the card for a saved failure |
 | `dagnose outbox [--resend]` | Notifications that could not be delivered |
+| `dagnose review [--report]` | Grade diagnoses by hand, then report accuracy, cost and speed |
 | `dagnose version` | Print the version |
 
 ## Security and privacy
