@@ -159,3 +159,25 @@ def test_worker_notifies_with_the_reason(
     assert call["run"] is None and call["reason"] == "diagnosis is turned off"
     assert call["session"] is not None  # same redaction session as the context
     assert "Sup3r-S3cret-Pw" not in call["ctx"].model_dump_json()
+
+
+def test_health_endpoint(tmp_path: Any) -> None:
+    import urllib.error
+    import urllib.request
+
+    from dagnose.health import start_health_server
+
+    queue = JobQueue(tmp_path / "q.db")
+    queue.enqueue("d", "r", "t", 1)
+    server = start_health_server(0, queue.path, host="127.0.0.1")  # port 0: any free port
+    port = server.server_address[1]
+    try:
+        body = json.loads(
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=5).read()
+        )
+        assert body["status"] == "ok" and body["jobs"] == {"pending": 1}
+        with pytest.raises(urllib.error.HTTPError) as err:
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/secrets", timeout=5)
+        assert err.value.code == 404
+    finally:
+        server.shutdown()

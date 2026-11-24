@@ -1,0 +1,48 @@
+{
+  "family": "dagnose",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "256",
+  "memory": "512",
+  "runtimePlatform": {"cpuArchitecture": "ARM64", "operatingSystemFamily": "LINUX"},
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/dagnose-execution",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/dagnose-task",
+  "containerDefinitions": [
+    {
+      "name": "dagnose",
+      "image": "ghcr.io/naresy/dagnose:latest",
+      "essential": true,
+      "command": ["-v", "worker"],
+      "environment": [
+        {"name": "DAGNOSE_HOME", "value": "/data"},
+        {"name": "DAGNOSE_WATCH", "value": "api"},
+        {"name": "DAGNOSE_AIRFLOW_AUTH", "value": "mwaa"},
+        {"name": "DAGNOSE_MWAA_ENVIRONMENT", "value": "ENVIRONMENT_NAME"},
+        {"name": "DAGNOSE_AWS_REGION", "value": "REGION"},
+        {"name": "DAGNOSE_LLM_PROVIDER", "value": "bedrock"},
+        {"name": "DAGNOSE_HEALTH_PORT", "value": "8080"}
+      ],
+      "secrets": [
+        {"name": "DAGNOSE_SLACK_WEBHOOK_URL", "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:dagnose/slack-webhook"}
+      ],
+      "healthCheck": {
+        "command": ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "mountPoints": [{"sourceVolume": "dagnose-data", "containerPath": "/data"}],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {"awslogs-group": "/ecs/dagnose", "awslogs-region": "REGION", "awslogs-stream-prefix": "dagnose", "awslogs-create-group": "true"}
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "dagnose-data",
+      "efsVolumeConfiguration": {"fileSystemId": "fs-XXXXXXXX", "transitEncryption": "ENABLED", "authorizationConfig": {"iam": "ENABLED"}}
+    }
+  ]
+}

@@ -287,10 +287,18 @@ def worker(
     once: Annotated[bool, typer.Option(help="Exit when the queue is empty.")] = False,
 ) -> None:
     """Process failure jobs from the queue (run this as a separate, long-lived process)."""
+    import os
+
     from dagnose import worker as worker_mod
     from dagnose.config import Settings
 
     settings = Settings()
+    port = settings.health_port or (int(os.environ["PORT"]) if os.environ.get("PORT") else None)
+    if port:
+        from dagnose.health import start_health_server
+
+        start_health_server(port, settings.queue_path)
+        typer.echo(f"health: http://0.0.0.0:{port}/healthz", err=True)
     typer.echo(
         f"watching: {settings.watch} (poll every {settings.poll_interval_s:.0f}s)\n"
         f"queue: {settings.queue_path}\ncontexts: {settings.contexts_dir}",

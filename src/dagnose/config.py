@@ -93,6 +93,8 @@ class Settings(BaseSettings):
     email_from: str | None = None
     email_to: list[str] = Field(default_factory=list)  # JSON list in the env var
 
+    health_port: int | None = None  # /healthz for Cloud Run / Container Apps / k8s (or PORT)
+
     home: Path = Field(default_factory=default_home)
 
     @property

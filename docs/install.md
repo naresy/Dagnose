@@ -109,12 +109,12 @@ docker compose exec dagnose ls /data/contexts /data/diagnoses
 | Instant detection (seconds, not 30 s) | Install the plugin into your Airflow image (`pip install dagnose`), share a folder between Airflow and the worker at `DAGNOSE_HOME`, and set `DAGNOSE_WATCH=both` |
 | No diagnosis, just collect + notify | `DAGNOSE_DIAGNOSE=false` |
 
-## Kubernetes
+## Kubernetes, ECS, Cloud Run, Container Apps
 
-Run the same image as a one-replica Deployment with the settings in a Secret and a
-small PersistentVolumeClaim at `/data`; `DAGNOSE_AIRFLOW_URL` is the Airflow API
-server's Service, e.g. `http://airflow-api-server.airflow.svc:8080`. Polling mode needs
-nothing from the Airflow pods. (A Helm chart is planned.)
+See [deploy-cloud.md](deploy-cloud.md): a ready Kubernetes manifest (EKS, GKE, AKS), an
+ECS Fargate task definition, and notes for Cloud Run and Azure Container Apps. On
+Kubernetes, `DAGNOSE_AIRFLOW_URL` is the Airflow API server's Service, e.g.
+`http://airflow-api-server.airflow.svc:8080`.
 
 ## Managed Airflow (AWS, Google Cloud, Azure)
 
