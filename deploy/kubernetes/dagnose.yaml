@@ -1,0 +1,81 @@
+# Dagnose worker on Kubernetes (EKS, GKE, AKS or any cluster).
+#
+#   kubectl create namespace dagnose
+#   kubectl -n dagnose create secret generic dagnose-env --from-env-file=dagnose.env
+#   kubectl -n dagnose apply -f deploy/kubernetes/dagnose.yaml
+#
+# dagnose.env holds DAGNOSE_* settings (see docs/install.md). For cloud logins without
+# keys, give the ServiceAccount an identity: EKS IRSA / Pod Identity, GKE Workload
+# Identity, AKS Workload Identity (annotations below).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dagnose
+  annotations: {}
+    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/dagnose
+    # iam.gke.io/gcp-service-account: dagnose@PROJECT.iam.gserviceaccount.com
+    # azure.workload.identity/client-id: CLIENT_ID
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dagnose-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dagnose
+  labels: {app: dagnose}
+spec:
+  replicas: 1                # one worker: the queue is a local SQLite file
+  strategy: {type: Recreate} # never two workers on the same volume
+  selector:
+    matchLabels: {app: dagnose}
+  template:
+    metadata:
+      labels: {app: dagnose}
+      # AKS Workload Identity also needs: azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: dagnose
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 50000
+        fsGroup: 50000
+      containers:
+        - name: dagnose
+          image: ghcr.io/naresy/dagnose:latest
+          args: ["-v", "worker"]
+          envFrom:
+            - secretRef: {name: dagnose-env}
+          env:
+            - {name: DAGNOSE_HOME, value: /data}
+            - {name: DAGNOSE_WATCH, value: api}       # no plugin, no shared folder needed
+            - {name: DAGNOSE_HEALTH_PORT, value: "8080"}
+          ports:
+            - {name: health, containerPort: 8080}
+          livenessProbe:
+            httpGet: {path: /healthz, port: health}
+            periodSeconds: 30
+          readinessProbe:
+            httpGet: {path: /healthz, port: health}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: dagnose-data}
+        - name: tmp
+          emptyDir: {}

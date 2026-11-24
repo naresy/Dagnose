@@ -94,6 +94,8 @@ def test_all_good(make_settings: Any) -> None:
         "Git history": "skip",
         "LLM": "ok",
         "Slack": "skip",
+        "Microsoft Teams": "skip",
+        "Google Chat": "skip",
         "Email": "skip",
         "Redaction": "ok",
     }

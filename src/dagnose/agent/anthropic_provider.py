@@ -39,8 +39,6 @@ _STOP: dict[str, StopReason] = {
 
 
 class AnthropicProvider:
-    name = "anthropic"
-
     def __init__(
         self,
         model: str = "claude-opus-5-5",
@@ -49,8 +47,10 @@ class AnthropicProvider:
         effort: str = "high",
         fallbacks: bool = True,
         max_tokens: int = 16000,
-        client: anthropic.Anthropic | None = None,
+        client: Any = None,  # Anthropic or the Bedrock (Mantle), Vertex or Foundry client
+        name: str = "anthropic",
     ) -> None:
+        self.name = name
         self.model = model
         self.effort = effort
         self.fallbacks = fallbacks

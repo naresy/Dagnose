@@ -80,15 +80,17 @@ def slack_payload(card: Card) -> dict[str, Any]:
     return {"text": f"{card.title}: {card.summary}"[:300], "blocks": blocks}
 
 
-def send_slack(
+def send_webhook(
+    service: str,
     webhook_url: str,
     payload: dict[str, Any],
     *,
     transport: httpx.BaseTransport | None = None,
     sleep: Callable[[float], None] = time.sleep,
 ) -> None:
-    """Post to the webhook. Retries rate limits (honouring Retry-After), 5xx and
-    connection errors; a 4xx means the payload or webhook is wrong, so no retry."""
+    """POST a JSON message to a chat webhook (Slack, Teams workflow, Google Chat).
+    Retries rate limits (honouring Retry-After), 5xx and connection errors; a 4xx means
+    the payload or webhook is wrong, so no retry. 200 and 202 (Teams) mean delivered."""
     last = ""
     with httpx.Client(timeout=10, transport=transport) as http:
         for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -98,7 +100,7 @@ def send_slack(
                 last = f"connection error: {type(exc).__name__}"
                 wait = float(2**attempt)
             else:
-                if resp.status_code == 200:
+                if resp.status_code in (200, 201, 202, 204):
                     return
                 last = f"HTTP {resp.status_code}: {resp.text[:200]}"
                 if resp.status_code == 429:
@@ -108,7 +110,17 @@ def send_slack(
                 elif resp.status_code >= 500:
                     wait = float(2**attempt)
                 else:
-                    raise NotifyError(f"Slack rejected the message: {last}")
+                    raise NotifyError(f"{service} rejected the message: {last}")
             if attempt < MAX_ATTEMPTS:
                 sleep(wait)
-    raise NotifyError(f"Slack unreachable after {MAX_ATTEMPTS} attempts: {last}")
+    raise NotifyError(f"{service} unreachable after {MAX_ATTEMPTS} attempts: {last}")
+
+
+def send_slack(
+    webhook_url: str,
+    payload: dict[str, Any],
+    *,
+    transport: httpx.BaseTransport | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> None:
+    send_webhook("Slack", webhook_url, payload, transport=transport, sleep=sleep)

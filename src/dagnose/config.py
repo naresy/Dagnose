@@ -64,16 +64,34 @@ class Settings(BaseSettings):
 
     # Diagnosis (LLM). Without credentials the worker still collects and redacts.
     diagnose: bool = True
-    llm_provider: Literal["anthropic"] = "anthropic"
-    llm_model: str = "claude-opus-5-5"  # or "anthropic/claude-opus-5-5"
-    llm_api_key: SecretStr | None = None  # else ANTHROPIC_API_KEY / `ant auth login`
+    # Where Claude runs. "anthropic": the Claude API. "bedrock": Amazon Bedrock (AWS
+    # credentials). "vertex": Google Vertex AI (Google credentials). "foundry": Microsoft
+    # Foundry (API key or Entra ID). With bedrock/vertex/foundry, prompts stay in your cloud.
+    llm_provider: Literal["anthropic", "bedrock", "vertex", "foundry"] = "anthropic"
+    llm_model: str = "claude-opus-5-5"  # or "<provider>/claude-opus-5-5"
+    llm_api_key: SecretStr | None = None  # Claude API or Foundry key; else ANTHROPIC_API_KEY
+    llm_region: str | None = (
+        None  # Bedrock: AWS region (default DAGNOSE_AWS_REGION); Vertex: "global"
+    )
+    llm_project: str | None = None  # Vertex: Google Cloud project id
+    llm_foundry_resource: str | None = None  # Foundry: the resource name
+    llm_azure_scope: str = "https://cognitiveservices.azure.com/.default"  # Foundry with Entra ID
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
     llm_max_turns: int = 6
     llm_fallbacks: bool = True  # server-side fallback model if Claude declines
 
+    # Repeats and cost. The same failure (same fingerprint) within the window reuses its
+    # diagnosis instead of calling the model again, and gets a "still failing" card at
+    # most every renotify_minutes. 0 turns dedupe off. The hourly cap bounds model spend.
+    dedupe_window_hours: float = 24
+    renotify_minutes: float = 60
+    max_diagnoses_per_hour: int = 20  # 0: no limit
+
     # Notifications. Cards carry only redacted text and short quotes, never raw logs.
     airflow_ui_url: str | None = None  # links in cards; default: airflow_url
     slack_webhook_url: SecretStr | None = None
+    teams_webhook_url: SecretStr | None = None  # Teams Workflows "post to a channel" webhook
+    google_chat_webhook_url: SecretStr | None = None  # Google Chat space webhook
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
@@ -81,6 +99,8 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     email_from: str | None = None
     email_to: list[str] = Field(default_factory=list)  # JSON list in the env var
+
+    health_port: int | None = None  # /healthz for Cloud Run / Container Apps / k8s (or PORT)
 
     home: Path = Field(default_factory=default_home)
 

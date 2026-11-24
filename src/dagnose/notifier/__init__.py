@@ -21,8 +21,9 @@ import httpx
 from dagnose.config import Settings
 from dagnose.models import DiagnosisRun, RedactedContext
 from dagnose.notifier.card import Card, build_card
+from dagnose.notifier.chat import google_chat_payload, teams_payload
 from dagnose.notifier.mail import build_email, email_html, email_text, send_email
-from dagnose.notifier.slack import NotifyError, send_slack, slack_payload
+from dagnose.notifier.slack import NotifyError, send_webhook, slack_payload
 from dagnose.redactor import RedactionSession
 
 __all__ = ["Card", "NotifyError", "NotifyReport", "build_card", "notify", "resend_outbox"]
@@ -37,8 +38,21 @@ class NotifyReport:
     outboxed: list[Path] = field(default_factory=list)
 
 
+# Chat webhooks: (channel, service name, setting, card renderer).
+_WEBHOOKS: tuple[tuple[str, str, str, Callable[[Card], dict[str, Any]]], ...] = (
+    ("slack", "Slack", "slack_webhook_url", slack_payload),
+    ("teams", "Microsoft Teams", "teams_webhook_url", teams_payload),
+    ("google_chat", "Google Chat", "google_chat_webhook_url", google_chat_payload),
+)
+
+
+def _webhook_url(settings: Settings, setting: str) -> str | None:
+    secret = getattr(settings, setting)
+    return secret.get_secret_value() if secret else None
+
+
 def channels_configured(settings: Settings) -> bool:
-    return bool(settings.slack_webhook_url) or settings.email_enabled
+    return any(_webhook_url(settings, s) for _, _, s, _ in _WEBHOOKS) or settings.email_enabled
 
 
 def notify(
@@ -52,6 +66,8 @@ def notify(
     transport: httpx.BaseTransport | None = None,
     smtp_factory: Callable[..., Any] | None = None,
     sleep: Callable[[float], None] = time.sleep,
+    occurrence: int = 1,
+    first_seen: float | None = None,
 ) -> NotifyReport:
     """Send the card to every configured channel. Never raises for delivery problems."""
     report = NotifyReport()
@@ -61,21 +77,21 @@ def notify(
         ui_url=settings.airflow_ui_url or settings.airflow_url,
         reason=reason,
         session=session,
+        occurrence=occurrence,
+        first_seen=first_seen,
     )
-    if settings.slack_webhook_url:
-        payload = slack_payload(card)
+    for channel, service, setting, render in _WEBHOOKS:
+        url = _webhook_url(settings, setting)
+        if not url:
+            continue
+        payload = render(card)
         try:
-            send_slack(
-                settings.slack_webhook_url.get_secret_value(),
-                payload,
-                transport=transport,
-                sleep=sleep,
-            )
-            report.sent.append("slack")
+            send_webhook(service, url, payload, transport=transport, sleep=sleep)
+            report.sent.append(channel)
         except NotifyError as exc:
-            report.failed["slack"] = str(exc)
+            report.failed[channel] = str(exc)
             report.outboxed.append(
-                _to_outbox(settings, name, "slack", json.dumps(payload), str(exc))
+                _to_outbox(settings, name, channel, json.dumps(payload), str(exc))
             )
     if settings.email_enabled:
         assert settings.email_from is not None
@@ -122,14 +138,14 @@ def resend_outbox(
     for path in sorted(settings.outbox_dir.glob("*.json")):
         item = json.loads(path.read_text())
         try:
-            if item["channel"] == "slack":
-                if not settings.slack_webhook_url:
-                    raise NotifyError("Slack is not configured")
-                send_slack(
-                    settings.slack_webhook_url.get_secret_value(),
-                    json.loads(item["body"]),
-                    transport=transport,
-                    sleep=sleep,
+            webhook = next((w for w in _WEBHOOKS if w[0] == item["channel"]), None)
+            if webhook is not None:
+                _, service, setting, _ = webhook
+                url = _webhook_url(settings, setting)
+                if not url:
+                    raise NotifyError(f"{service} is not configured")
+                send_webhook(
+                    service, url, json.loads(item["body"]), transport=transport, sleep=sleep
                 )
             elif item["channel"] == "email":
                 if not settings.email_enabled:

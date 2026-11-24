@@ -9,6 +9,7 @@ few short quotes and a link back to Airflow.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from urllib.parse import quote, urlencode
 
 from dagnose.models import DiagnosisRun, RedactedContext
@@ -84,6 +85,8 @@ def build_card(
     ui_url: str | None,
     reason: str | None = None,
     session: RedactionSession | None = None,
+    occurrence: int = 1,
+    first_seen: float | None = None,
 ) -> Card:
     session = session or Redactor().session()
 
@@ -127,7 +130,7 @@ def build_card(
             if frame:
                 where = f"{frame.filename.rsplit('/', 1)[-1]}:{frame.lineno}"
                 card.evidence.append(EvidenceRow(True, where, f"in {frame.name}"))
-        return card
+        return _with_repeats(card, None, occurrence, first_seen)
 
     d = run.diagnosis
     card.diagnosed = True
@@ -145,4 +148,25 @@ def build_card(
             f"{run.evidence_verified} of {run.evidence_total} evidence quotes "
             "were found in the logs."
         )
+    return _with_repeats(card, run, occurrence, first_seen)
+
+
+def _with_repeats(
+    card: Card, run: DiagnosisRun | None, occurrence: int, first_seen: float | None
+) -> Card:
+    """A repeat of a known failure says so, instead of looking like a new incident."""
+    if occurrence <= 1:
+        return card
+    card.title = _short(f"{card.dag_id}.{card.task_id} still failing ({occurrence}×)", 140)
+    since = (
+        datetime.fromtimestamp(first_seen, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        if first_seen
+        else "earlier"
+    )
+    parts = [f"Same failure {occurrence}× since {since}."]
+    if run is not None and run.reused_from:
+        parts.append("Diagnosis reused from the first time: no new model call.")
+    if card.note:
+        parts.append(card.note)
+    card.note = " ".join(parts)
     return card
