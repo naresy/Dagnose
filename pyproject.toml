@@ -31,10 +31,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/naresy/airflow_doctor"
-Documentation = "https://github.com/naresy/airflow_doctor/blob/main/docs/install.md"
-Issues = "https://github.com/naresy/airflow_doctor/issues"
-Changelog = "https://github.com/naresy/airflow_doctor/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/naresy/dagnose"
+Documentation = "https://github.com/naresy/dagnose/blob/main/docs/install.md"
+Issues = "https://github.com/naresy/dagnose/issues"
+Changelog = "https://github.com/naresy/dagnose/blob/main/CHANGELOG.md"
 
 [project.scripts]
 dagnose = "dagnose.cli:app"
