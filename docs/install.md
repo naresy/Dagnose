@@ -86,7 +86,7 @@ docker compose up -d dagnose
 docker compose logs -f dagnose
 ```
 
-From now on, every task that fails shows up in the log within about 30 seconds
+From now on, every task that fails shows up in the log within about 15 seconds
 (`DAGNOSE_POLL_INTERVAL_S`), then a diagnosis and a card. On the very first
 start Dagnose also looks back 60 minutes (`DAGNOSE_POLL_LOOKBACK_MINUTES`).
 
@@ -106,7 +106,7 @@ docker compose exec dagnose ls /data/contexts /data/diagnoses
 | Microsoft Teams | In the channel, Workflows, then "Post to a channel when a webhook request is received"; set `DAGNOSE_TEAMS_WEBHOOK_URL` to its URL |
 | Google Chat | In the space, Apps & integrations, then Webhooks; set `DAGNOSE_GOOGLE_CHAT_WEBHOOK_URL` |
 | Email instead of / as well as Slack | `DAGNOSE_SMTP_HOST`, `_SMTP_PORT`, `_SMTP_USERNAME`, `_SMTP_PASSWORD`, `_EMAIL_FROM`, `_EMAIL_TO=["oncall@example.com"]` |
-| Instant detection (seconds, not 30 s) | Install the plugin into your Airflow image (`pip install dagnose`), share a folder between Airflow and the worker at `DAGNOSE_HOME`, and set `DAGNOSE_WATCH=both` |
+| Instant detection (seconds, not 15 s) | Install the plugin into your Airflow image (`pip install dagnose`), share a folder between Airflow and the worker at `DAGNOSE_HOME`, and set `DAGNOSE_WATCH=both` |
 | No diagnosis, just collect + notify | `DAGNOSE_DIAGNOSE=false` |
 
 ## Kubernetes, ECS, Cloud Run, Container Apps

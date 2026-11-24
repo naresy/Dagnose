@@ -55,7 +55,7 @@ def test_review_flow(home: Path) -> None:
     write_run(home, "c", reused=True)  # a repeat: not reviewed again
     assert [p.name for p in rv.pending(home)] == ["a.json", "b.json"]
 
-    answers = "y\nc\nu\n\n\n" + "n\nw\nw\nwrong connection id\nfound in run history\n"
+    answers = "y\nc\nu\n\n\n\n" + "n\nw\nw\nwrong connection id\nfound in run history\n\n"
     result = CliRunner().invoke(app, ["review"], input=answers)
     assert result.exit_code == 0, result.output
     assert "2 diagnosis(es) to review" in result.output and "[found] log:3" in result.output
@@ -78,8 +78,52 @@ def test_skip_and_quit(home: Path) -> None:
 
 def test_invalid_answer_is_asked_again(home: Path) -> None:
     write_run(home, "a")
-    result = CliRunner().invoke(app, ["review"], input="maybe\ny\nc\nu\n\n\n")
+    result = CliRunner().invoke(app, ["review"], input="maybe\ny\nc\nu\n\n\n\n")
     assert "please answer one of" in result.output and len(rv.load_reviews(home)) == 1
+
+
+def test_answers_are_confirmed_before_saving(home: Path) -> None:
+    write_run(home, "a")
+    # First pass: a slip (wrong root cause), declined at the confirm step; second pass saved.
+    answers = "y\nw\nn\n\n\nn\n" + "y\nc\nu\n\n\ny\n"
+    result = CliRunner().invoke(app, ["review"], input=answers)
+    assert result.exit_code == 0, result.output
+    assert "category: yes | root cause: wrong | fix: none" in result.output
+    assert "not saved, asking again" in result.output
+    [saved] = rv.load_reviews(home)
+    assert (saved.root_cause, saved.fix) == ("correct", "useful")
+
+
+def test_redo_replaces_the_earlier_grade(home: Path) -> None:
+    write_run(home, "a")
+    write_run(home, "b")
+    CliRunner().invoke(app, ["review"], input="y\nw\nn\n\n\n\n" + "y\nc\nu\n\n\n\n")
+    assert rv.pending(home) == []
+
+    result = CliRunner().invoke(app, ["review", "--redo", "dag_a.t"], input="y\nc\nu\n\n\n\n")
+    assert result.exit_code == 0, result.output
+    assert "1 diagnosis(es) to review" in result.output
+    saved = {r.dag_id: r.root_cause for r in rv.load_reviews(home)}
+    assert saved == {"dag_a": "correct", "dag_b": "correct"}  # one grade per diagnosis
+    assert len((home / "reviews.jsonl").read_text().splitlines()) == 2
+
+    missing = CliRunner().invoke(app, ["review", "--redo", "no_such_dag"])
+    assert missing.exit_code == 1 and "No graded diagnoses for no_such_dag" in missing.output
+
+
+def test_older_review_files_with_duplicates_count_the_last_grade(home: Path) -> None:
+    path = write_run(home, "a")
+    run = DiagnosisRun.model_validate_json(path.read_text())
+    base = {"real_cause": "", "notes": "", "category_correct": "yes", "fix": "useful"}
+    first = rv.make_review(path, run, {**base, "root_cause": "wrong"})
+    second = rv.make_review(path, run, {**base, "root_cause": "correct"})
+    import json
+    from dataclasses import asdict
+
+    (home / "reviews.jsonl").write_text(
+        "".join(json.dumps(asdict(r)) + "\n" for r in (first, second))
+    )
+    assert [r.root_cause for r in rv.load_reviews(home)] == ["correct"]
 
 
 def test_report(home: Path, tmp_path: Path) -> None:
