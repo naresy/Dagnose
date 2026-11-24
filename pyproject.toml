@@ -30,6 +30,12 @@ dependencies = [
     "typer>=0.12",
 ]
 
+[project.optional-dependencies]
+# Managed Airflow and models in your own cloud. The Docker image includes all three.
+aws = ["boto3>=1.35"]
+gcp = ["google-auth[requests]>=2.30"]
+azure = ["azure-identity>=1.17"]
+
 [project.urls]
 Homepage = "https://github.com/naresy/airflow_doctor"
 Documentation = "https://github.com/naresy/airflow_doctor/blob/main/docs/install.md"
@@ -44,6 +50,9 @@ dagnose = "dagnose.plugin:DagnosePlugin"
 
 [dependency-groups]
 dev = [
+    "azure-identity>=1.17",
+    "boto3>=1.35",
+    "google-auth[requests]>=2.30",
     "mypy>=1.10",
     "pytest>=8.0",
     "pytest-cov>=7.1.0",
@@ -74,7 +83,7 @@ strict = true
 files = ["src"]
 
 [[tool.mypy.overrides]]
-module = ["airflow", "airflow.*"]
+module = ["airflow", "airflow.*", "boto3", "boto3.*", "botocore", "botocore.*", "google.*", "azure.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

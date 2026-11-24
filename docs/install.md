@@ -114,12 +114,79 @@ small PersistentVolumeClaim at `/data`; `DAGNOSE_AIRFLOW_URL` is the Airflow API
 server's Service, e.g. `http://airflow-api-server.airflow.svc:8080`. Polling mode needs
 nothing from the Airflow pods. (A Helm chart is planned.)
 
-## Managed Airflow
+## Managed Airflow (AWS, Google Cloud, Azure)
 
-Polling only needs the REST API, so MWAA, Cloud Composer and Astronomer can work, but
-each uses its own login (AWS IAM, Google OAuth, Astronomer API tokens). Dagnose
-currently supports a username and password, or a fixed bearer token
-(`DAGNOSE_AIRFLOW_TOKEN`). **Managed platforms are not verified yet.**
+Polling only needs the Airflow REST API, so Dagnose works with managed Airflow; what
+changes is how it logs in. The Docker image includes the AWS, Google and Azure SDKs
+(`pip install 'dagnose[aws]'`, `[gcp]` or `[azure]` otherwise).
+
+> **Status:** built and tested offline (the MWAA requests are checked against the AWS
+> SDK's own service model; the full collector runs over a simulated MWAA). A first
+> run against a real environment on each cloud is still to do.
+
+### AWS: Amazon MWAA (Airflow 2.4.3+)
+
+Dagnose calls the Airflow REST API through MWAA's `InvokeRestApi`, signed with the AWS
+credentials it runs with (ECS task role, EC2 instance profile, or a profile). Give that
+principal read-only access:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Effect": "Allow", "Action": "airflow:InvokeRestApi",
+     "Resource": "arn:aws:airflow:REGION:ACCOUNT_ID:role/ENVIRONMENT_NAME/Viewer"},
+    {"Effect": "Allow", "Action": "airflow:GetEnvironment",
+     "Resource": "arn:aws:airflow:REGION:ACCOUNT_ID:environment/ENVIRONMENT_NAME"}
+  ]
+}
+```
+
+```bash
+DAGNOSE_AIRFLOW_AUTH=mwaa
+DAGNOSE_MWAA_ENVIRONMENT=ENVIRONMENT_NAME
+DAGNOSE_AWS_REGION=eu-west-1
+DAGNOSE_AIRFLOW_API=v1        # optional: Airflow 2 = v1, 3 = v2; then GetEnvironment is not needed
+```
+
+- With a **private** webserver, run Dagnose inside the same VPC (ECS Fargate is simplest).
+- Turn on **task logs** in the environment's logging settings; Dagnose reads them through
+  the API. MWAA caps one API response at 6 MB.
+
+### Google Cloud: Cloud Composer
+
+Dagnose uses Google default credentials (a service account; on GKE, Workload Identity;
+on Cloud Run, the service's account) and sends them as a bearer token.
+
+1. Give the service account `roles/composer.user`.
+2. Make it a **Viewer** in Airflow. Composer registers new API users as **Op** by default,
+   which can change things: set the Airflow config override
+   `api` / `composer_auth_user_registration_role` = `Viewer` before Dagnose's first call.
+3. Settings:
+
+```bash
+DAGNOSE_AIRFLOW_AUTH=google
+DAGNOSE_AIRFLOW_URL=$(gcloud composer environments describe ENV --location REGION --format="value(config.airflowUri)")
+```
+
+### Azure
+
+- **Airflow on AKS or VMs** (the usual setup): the main guide above, nothing extra.
+- **Apache Airflow jobs in Microsoft Fabric** (Azure Data Factory's Workflow Orchestration
+  Manager was retired in favour of it): Dagnose can send a Microsoft Entra ID token from
+  `DefaultAzureCredential` (managed identity, workload identity, or `az login`). Set the
+  Airflow URL and the API's Entra scope. *Experimental: the scope to use is not verified yet.*
+
+```bash
+DAGNOSE_AIRFLOW_AUTH=azure
+DAGNOSE_AIRFLOW_URL=https://...
+DAGNOSE_AZURE_SCOPE=<application-id-uri>/.default
+```
+
+### Astronomer
+
+Use a Deployment API token as `DAGNOSE_AIRFLOW_TOKEN` with the deployment's URL
+(`DAGNOSE_AIRFLOW_AUTH` stays `password`). Not verified yet.
 
 ## Troubleshooting
 
@@ -128,6 +195,8 @@ currently supports a username and password, or a fixed bearer token
 | ✗ Airflow API … not found | `DAGNOSE_AIRFLOW_URL` must reach the API server from the Dagnose container (service name, container port) |
 | ✗ Airflow login … HTTP 401 / 403 | Wrong user or password, or the user lacks the Viewer role. Airflow 2: enable the basic auth backend |
 | ✗ LLM … no Anthropic credentials | Set `DAGNOSE_LLM_API_KEY`, or `DAGNOSE_DIAGNOSE=false` |
+| ✗ Airflow API … not installed: pip install 'dagnose[aws]' | Install the extra for your cloud, or use the Docker image (it has all of them) |
+| ✗ Airflow API … MWAA AccessDeniedException / HTTP 403 | The IAM principal lacks `airflow:InvokeRestApi` on `role/ENV/Viewer` (see MWAA above) |
 | ✗ Finding failures … plugin not installed | You set `WATCH=plugin`; use `api` (default for this guide) or install the plugin |
 | ! Task logs … Airflow could not serve the log | Your Airflow cannot show task logs (its own UI cannot either). Most often its components do not share `[api] secret_key`: set `AIRFLOW__API__SECRET_KEY` to the same value on every Airflow container, or share the logs folder, or use remote logging. Until then cards say "its log could not be read". |
 
