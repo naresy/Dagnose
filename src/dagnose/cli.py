@@ -359,7 +359,7 @@ def _grade() -> dict[str, str] | str:
         )
         notes = typer.prompt("Notes (Enter to leave empty)", default="", show_default=False)
         typer.echo(f"  category: {cat} | root cause: {root} | fix: {fix}")
-        if typer.confirm("Save this grade?", default=True):
+        if typer.confirm("Save this grade?", default=False):
             return {
                 "category_correct": cat,
                 "root_cause": root,
