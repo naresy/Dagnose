@@ -208,3 +208,5 @@ class DiagnosisRun(BaseModel):
     confidence_capped: bool = False  # lowered because the evidence did not check out
     model_confidence: float  # what the model said, before any cap
     created_at: datetime
+    fingerprint: str | None = None
+    reused_from: str | None = None  # run id whose diagnosis was reused (no model call)

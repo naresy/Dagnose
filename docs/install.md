@@ -218,7 +218,9 @@ Use a Deployment API token as `DAGNOSE_AIRFLOW_TOKEN` with the deployment's URL
 
 ## Costs and privacy
 
-- A diagnosis costs about **$0.03** with Claude Opus 5.5. Set a spending limit in the
-  Anthropic console.
+- A diagnosis costs about **$0.03** with Claude Opus 5.5. A failure that repeats reuses
+  its diagnosis for 24 hours (`DAGNOSE_DEDUPE_WINDOW_HOURS`) and gets a "still failing"
+  card at most hourly (`DAGNOSE_RENOTIFY_MINUTES`); at most 20 diagnoses per hour
+  (`DAGNOSE_MAX_DIAGNOSES_PER_HOUR`). Also set a spending limit with your model provider.
 - Logs and code stay in your network. Only the **redacted** failure context is sent to
   the model, and cards contain only redacted text and short quotes.

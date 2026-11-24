@@ -241,6 +241,7 @@ def main() -> int:
         slack_webhook_url=slack.url,
         watch=args.watch,
         poll_interval_s=1,  # e2e: poll on every worker pass
+        dedupe_window_hours=0,  # e2e fails the same DAGs on every run and wants a card each time
     )
 
     def collected() -> dict[str, RedactedContext] | None:

@@ -66,6 +66,8 @@ def notify(
     transport: httpx.BaseTransport | None = None,
     smtp_factory: Callable[..., Any] | None = None,
     sleep: Callable[[float], None] = time.sleep,
+    occurrence: int = 1,
+    first_seen: float | None = None,
 ) -> NotifyReport:
     """Send the card to every configured channel. Never raises for delivery problems."""
     report = NotifyReport()
@@ -75,6 +77,8 @@ def notify(
         ui_url=settings.airflow_ui_url or settings.airflow_url,
         reason=reason,
         session=session,
+        occurrence=occurrence,
+        first_seen=first_seen,
     )
     for channel, service, setting, render in _WEBHOOKS:
         url = _webhook_url(settings, setting)
