@@ -264,13 +264,13 @@ def check(
             typer.echo(f"✗ Settings: {name}: {err['msg']}", err=True)
         raise typer.Exit(1) from exc
 
-    icons = {"ok": "✓", "warn": "!", "fail": "✗", "skip": "–"}
+    labels = {"ok": "[ok]  ", "warn": "[warn]", "fail": "[fail]", "skip": "[skip]"}
     failed = warned = 0
     typer.echo("Dagnose check")
     for r in run_checks(settings, send_test=send_test):
-        typer.echo(f"  {icons[r.status]} {r.name:17} {r.detail}")
+        typer.echo(f"  {labels[r.status]} {r.name:17} {r.detail}")
         if r.fix and r.status in ("fail", "warn"):
-            typer.echo(f"      → {r.fix}")
+            typer.echo(f"         fix: {r.fix}")
         failed += r.status == "fail"
         warned += r.status == "warn"
     if failed:

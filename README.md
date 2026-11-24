@@ -1,202 +1,264 @@
 # Dagnose
 
-[![ci](https://github.com/naresy/dagnose/actions/workflows/ci.yml/badge.svg)](https://github.com/naresy/dagnose/actions/workflows/ci.yml)
+[![CI](https://github.com/naresy/dagnose/actions/workflows/ci.yml/badge.svg)](https://github.com/naresy/dagnose/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
 
-**The open source AI on-call engineer for Apache Airflow.** *Dagnose* (DAG + diagnose) diagnoses failed tasks with evidence, suggests fixes as pull requests, and remembers past incidents. Self-hosted, and you bring your own LLM key.
+**An open source on-call assistant for Apache Airflow.** When a task fails, Dagnose
+collects the evidence, removes secrets, asks an LLM what went wrong, checks the answer
+against the real logs and code, and posts a short diagnosis to Slack, Microsoft Teams,
+Google Chat or email.
 
-## Why
+Dagnose (DAG + diagnose) is self-hosted, read-only towards Airflow, and uses your own
+LLM account.
 
-When an Airflow task fails, engineers lose hours digging through logs, DAG code and run history to find out why. Dagnose does that work for you, inside your own Airflow. Your data never leaves your network.
+## Contents
+
+- [What you get](#what-you-get)
+- [How it works](#how-it-works)
+- [Supported environments](#supported-environments)
+- [Quick start](#quick-start)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Commands](#commands)
+- [Security and privacy](#security-and-privacy)
+- [Costs](#costs)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+## What you get
+
+A failed task produces a card like this, a few seconds after Airflow marks it failed:
+
+```text
+demo_orders_tax.compute_tax failed
+Code bug - confidence 0.93
+
+compute_tax fails because the order produced by extract_orders has no 'country'
+field, but compute_tax looks up the tax rate by order['country'].
+
+Evidence (checked against the logs and code)
+  [found] dag_source:26  rate = TAX_RATES[order["country"]]
+  [found] dag_source:22  return {"order_id": 42, "amount": 19.99, "currency": "USD"}
+  [found] exception      KeyError: 'country'
+
+Suggested fix
+  Add a 'country' key to the dict returned by extract_orders.
+
+Run manual__2026-11-23T16:53  |  Try 1  |  Airflow 3.3.2         [Open in Airflow]
+```
+
+- **A diagnosis, not just an alert:** category, root cause, suggested fix and, for code
+  bugs, a patch.
+- **Evidence you can check:** every quote is looked up in the real logs and DAG code.
+  When quotes cannot be found, the confidence is lowered.
+- **Secrets removed first:** passwords, tokens, keys, emails and names are replaced
+  before anything leaves your network or is written to disk.
+- **Quiet on repeats:** the same failure again reuses its diagnosis and gets at most
+  one "still failing" update per hour.
+- **Works without a model:** without an API key, failures are still collected and
+  announced, marked "not diagnosed".
 
 ## How it works
 
-1. **Trigger:** two ways to notice a failure, used together by default (`DAGNOSE_WATCH=both`, duplicates are dropped):
-   - **API polling** (`api`): the worker asks the Airflow REST API every 30 seconds for tasks that failed since the last check. No plugin and no shared folder, so it works with Kubernetes and Celery workers, managed Airflow (MWAA, Cloud Composer, Astronomer), and tasks killed from outside (out of memory, lost worker).
-   - **Listener plugin** (`plugin`): instant. An Airflow plugin listener (`on_task_instance_failed`) writes a tiny job file (`dag_id`, `run_id`, `task_id`, `try_number`) into a spool folder with an atomic rename, and returns. No locks, so many task processes can fail at once safely, even over Docker bind mounts or NFS. It never raises and never calls an LLM, so Airflow is never slowed down or crashed by Dagnose.
-2. **Collect:** a separate `dagnose worker` process moves spool files into its own SQLite queue (only the worker touches it), then reads everything through the Airflow REST API (`/api/v2` on 3.x, `/api/v1` on 2.x). It gathers the log tail, the exception and stack trace, the DAG source, task params, the last N runs, and recent git commits that touched the DAG.
-3. **Redact:** it replaces secrets with placeholders like `[REDACTED:password#1]` before anything reaches a model or disk: passwords in connection strings, `password=`/`token=`/`api_key=` values, known token formats (AWS, GitHub, Slack, Stripe, Google, OpenAI, Anthropic, JWT, private keys), emails, unlabelled high-entropy keys, sensitive task params and git author names. The same value always gets the same placeholder, so the model can still see that one secret appears in two places. Redaction is one-way: originals are never stored.
-4. **Repeat check:** each failure gets a fingerprint (DAG, task, exception, failing line, message with run-specific numbers and ids removed). The same failure again within 24 hours reuses its diagnosis (no model call) and gets a "still failing (12×)" card at most once an hour instead of a new card each time. A cap (20 diagnoses per hour by default) bounds model spend.
-5. **Recall:** it searches local incident memory for similar past failures, using an error fingerprint plus embeddings.
-6. **Diagnose:** an LLM gets the redacted context with numbered log and DAG source lines, plus read-only tools (`list_run_tasks`, `get_task_log` for upstream tasks or the last successful run; `get_table_schema` and `search_past_incidents` come later). It returns structured JSON: summary, category, root cause, evidence quotes, confidence, fix and an optional patch. Every evidence quote is checked against the context, and confidence is capped when the evidence does not check out. Tool results are redacted with the same placeholders before the model sees them.
-7. **Fix:** if a code fix applies, it opens a pull request through the GitHub or GitLab API. It never touches production.
-8. **Notify:** it posts a card to Slack, Microsoft Teams, Google Chat and/or email with the diagnosis, checked evidence (✅ found in the logs / ❔ not found), the suggested fix and an "Open in Airflow" link. Cards carry only redacted text and short quotes, never raw logs, and are redacted once more before sending. Without a diagnosis the card still shows the error, where it failed and why it was not diagnosed. Failed deliveries go to an outbox (`dagnose outbox --resend`) instead of re-running the pipeline. PR links and correct / wrong / retry buttons come with steps 5 and 6.
-9. **Learn:** feedback and final fixes are saved to memory, so later diagnoses improve.
-
-```
-Airflow (scheduler / task process)          dagnose worker (separate process)
-┌────────────────────────────┐  job (tiny)  ┌───────────────────────────────────────────┐
-│ listener: task failed      │ ───────────► │ collector ──► redactor ──► memory (recall) │
-│ → spool file, return,      │ spool folder │      ──► agent (LLM + read-only tools)    │
-│   never raise              │              │      ──► fixer (PR) / notifier / memory   │
-└────────────────────────────┘              └───────────────────────────────────────────┘
-                 ▲                                         │
-                 └──────────── Airflow REST API ◄──────────┘
+```text
+  Airflow                         dagnose worker (one container)
+  -------                         ------------------------------
+  task fails  --REST API poll-->  1. collect   log, exception, DAG source, inputs,
+  (or listener plugin)                         run history, git commits
+                                  2. redact    replace secrets with placeholders
+                                  3. dedupe    same failure seen before? reuse it
+                                  4. diagnose  LLM with read-only tools
+                                  5. verify    check every evidence quote
+                                  6. notify    Slack / Teams / Google Chat / email
 ```
 
-Why a separate worker: Airflow 3 tasks cannot touch the metadata DB directly, the task process exits right after failing, and the REST API works the same for 2.x and 3.x (including remote logging). Replaying a failure is just putting a job in the same queue.
+- **Finding failures:** by default the worker polls the Airflow REST API every 30
+  seconds for failed tasks. No plugin, no changes to your Airflow image or DAGs, and it
+  works with Kubernetes and Celery executors, managed Airflow, and tasks killed from
+  outside (for example out of memory). An optional listener plugin reports failures
+  instantly.
+- **Separate from Airflow:** the worker is its own process, so a slow LLM call or a
+  bug in Dagnose can never slow down or break Airflow.
+- **Read-only:** Dagnose reads DAGs, runs, task instances and logs with an Airflow
+  user that has the Viewer role. It never changes anything in Airflow.
 
-## Components
+## Supported environments
 
-| Module | Role |
-|---|---|
-| `plugin` | Airflow listener plugin: write failure jobs to the spool only |
-| `queue` | Lock-free spool (listener side) + SQLite job queue (worker side) |
-| `worker` | Separate process that runs the pipeline for each job |
-| `collector` | REST API client (v2 / v1), log and metadata readers, git history |
-| `redactor` | Secret scrubbing: token formats, credential URLs, sensitive keys, emails, entropy, people |
-| `memory` | SQLite + sqlite-vec incident store, error fingerprints, embeddings |
-| `agent` | Diagnosis loop, read-only tools, evidence check; provider interface with an Anthropic adapter |
-| `fixer` | Branch and PR creation (GitHub / GitLab) |
-| `notifier` | Slack (Block Kit, incoming webhook) and email (SMTP) cards, retries, outbox |
-| `cli` | `dagnose` commands: check, worker, queue, collect, redact, diagnose, notify, outbox |
-
-## Tech stack
-
-- **Core:** Python 3.10+, `uv`, Apache Airflow 2.x/3.x plugin and listener API
-- **LLM:** official Anthropic SDK (Claude Opus 5.5 by default: structured outputs, strict tools, prompt caching, refusal fallback) behind a small provider interface. The same Claude also runs inside your own cloud: Amazon Bedrock, Google Vertex AI or Microsoft Foundry (`DAGNOSE_LLM_PROVIDER`). OpenAI and local (Ollama) adapters can be added without touching the agent. Pydantic for the diagnosis schema
-- **Security:** own redaction detectors (known token formats, credential URLs, sensitive keys, emails, entropy), tuned to keep diagnostic evidence such as hosts, ids and class names
-- **Memory:** SQLite with `sqlite-vec`, `fastembed` for local embeddings
-- **Integrations:** PyGithub, python-gitlab, Slack SDK, SMTP
-- **CLI:** Typer
-- **Quality:** pytest, ruff, mypy, GitHub Actions
-- **Eval:** Docker Compose with a local Airflow and deliberately broken DAGs (30+ real failure cases)
-
-## Install
-
-**Adding Dagnose to your own Airflow project: follow [docs/install.md](docs/install.md)** (one extra container, a read-only Airflow login, about 10 minutes).
-
-From source / for development:
-
-```bash
-pip install dagnose
-export DAGNOSE_LLM_MODEL="claude-opus-5-5"   # default; other providers planned
-export DAGNOSE_LLM_API_KEY="..."               # or ANTHROPIC_API_KEY, or `ant auth login`
-export DAGNOSE_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
-# and/or email:
-# export DAGNOSE_SMTP_HOST=smtp.example.com DAGNOSE_EMAIL_FROM=dagnose@example.com
-# export DAGNOSE_EMAIL_TO='["oncall@example.com"]'   # JSON list; also SMTP_PORT/_USERNAME/_PASSWORD/_SECURITY
-dagnose check        # verifies Airflow, login, how failures are found, LLM key (free), Slack, email
-dagnose worker       # runs the pipeline; leave it running
-```
-
-Keep keys out of git: `.env` is git-ignored, CI fails if a real-looking key (Anthropic, OpenAI, AWS, GitHub, Slack, Stripe, private key) is in the repo (`dev/scan_secrets.py`), and `./dev/install_hooks.sh` adds a pre-commit hook that blocks such commits locally.
-
-Or run the worker as a container (images for Intel and ARM; published with each release):
-
-```bash
-docker run --rm --env-file .env ghcr.io/naresy/dagnose:latest check
-docker run -d --name dagnose --env-file .env -v dagnose-data:/data \
-  ghcr.io/naresy/dagnose:latest
-```
-
-With `DAGNOSE_WATCH=api` the container needs nothing from your Airflow setup except a read-only login: no plugin, no shared folder.
-
-Settings can also go in a `.env` file in the directory you run `dagnose` from (git-ignored; real environment variables win over it):
-
-```bash
-# .env
-DAGNOSE_LLM_API_KEY=sk-ant-...
-DAGNOSE_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-```
-
-## Development
-
-```bash
-uv sync                                   # install
-uv run ruff check . && uv run mypy && uv run pytest
-
-cd dev && docker compose up -d            # local Airflow 3.3 at http://localhost:8080 (airflow / airflow)
-```
-
-The dev stack mounts `src/` into Airflow and loads the listener from `dev/plugins/`. Failed tasks land in `dev/dagnose-data/spool/`.
-
-`dev/dags/demo/` holds deliberately broken DAGs, written like ordinary pipelines so their names and comments do not give the cause away (what each one does wrong is in [its README](dev/dags/demo/README.md)). One leaks fake credentials to test redaction. Trigger them from the UI or REST API to produce real failures, then:
-
-```bash
-export DAGNOSE_HOME=dev/dagnose-data
-export DAGNOSE_AIRFLOW_USERNAME=airflow DAGNOSE_AIRFLOW_PASSWORD=airflow
-export DAGNOSE_GIT_REPO_PATH=$PWD DAGNOSE_GIT_DAGS_SUBDIR=dev/dags   # optional
-
-uv run dagnose worker --once       # spool -> queue -> collect -> dev/dagnose-data/contexts/*.json
-uv run dagnose queue               # job counts by status
-uv run dagnose collect <dag_id> <run_id> <task_id>   # one failure, redacted JSON to stdout (--raw: unredacted)
-uv run dagnose redact <context.json>                 # redact a saved context, summary on stderr
-uv run dagnose diagnose <context.json>               # diagnose a saved context (calls the model API)
-uv run python dev/diagnose_fixtures.py --yes-spend          # score the model on the 6 recorded failures (paid)
-uv run dagnose notify <context.json> --dry-run       # preview the Slack and email card
-uv run dagnose outbox [--resend]                     # notifications that could not be delivered
-uv run python dev/record_fixtures.py      # refresh recorded API traffic + contexts in tests/fixtures/
-```
-
-Tests replay recorded real Airflow API traffic (`tests/fixtures/api/`), so they need no running Airflow. `tests/fixtures/contexts/` holds the collected `FailureContext` for each broken DAG, the input for the redactor and agent steps.
-
-### Airflow 2.x
-
-Airflow support: 3.x first, 2.x kept working through the v1 REST API. Both are tested against real installs (3.3.2 and 2.11.1). A 2.x stack runs next to the 3.x one, with the same broken DAGs and plugin:
-
-```bash
-cd dev/airflow2 && docker compose up -d   # Airflow 2.11 at http://localhost:8081 (airflow / airflow)
-
-export DAGNOSE_HOME=dev/airflow2/dagnose-data DAGNOSE_AIRFLOW_URL=http://localhost:8081
-uv run dagnose worker --once       # same commands as above
-DAGNOSE_AIRFLOW_URL=http://localhost:8081 uv run python dev/record_fixtures.py   # v1 fixtures
-```
-
-### CI/CD
-
-| When | Workflow | What runs |
+| Area | Supported | Status |
 |---|---|---|
-| Every PR and push to `main` | [ci.yml](.github/workflows/ci.yml) | ruff + strict mypy; unit tests on Python 3.10–3.13 (coverage ≥ 85%); **e2e on real Airflow 3 and Airflow 2** in Docker (`dev/e2e.py`: fail the broken DAGs, check listener → worker → collect → redact → Slack card against a local fake webhook); build the wheel and smoke test it in a clean venv |
-| Push a tag `vX.Y.Z` | [release.yml](.github/workflows/release.yml) | everything above, then check the tag matches `pyproject.toml`, publish to PyPI (trusted publishing), create a GitHub release |
-| Weekly | [dependabot.yml](.github/dependabot.yml) | grouped update PRs for Python deps and Actions |
+| Airflow | 3.x (REST API v2), 2.x (REST API v1) | Tested end to end on 3.3.2 and 2.11.1 |
+| Self-hosted Airflow | Docker Compose, Kubernetes (EKS, GKE, AKS), VMs | Tested with Docker Compose |
+| AWS | Amazon MWAA (IAM, `InvokeRestApi`) | Built and tested offline, not yet run on MWAA |
+| Google Cloud | Cloud Composer (Google credentials) | Built and tested offline, not yet run on Composer |
+| Azure | Airflow on AKS; Airflow in Microsoft Fabric (Entra ID) | AKS as self-hosted; Fabric experimental |
+| Astronomer | Deployment API token | Expected to work, not yet verified |
+| LLM | Claude API, Amazon Bedrock, Google Vertex AI, Microsoft Foundry | Claude API tested live; others tested offline |
+| Notifications | Slack, Microsoft Teams, Google Chat, email (SMTP) | Tested offline and with a local webhook |
 
-Run the e2e check locally the same way CI does: start a stack, then `uv run python dev/e2e.py --airflow 3` (or `--airflow 2`). What each broken DAG must produce lives in `dev/dags/demo/expected.json`, shared by the unit tests and the e2e check.
+## Quick start
+
+The shortest path for an Airflow you run with Docker Compose. The full guide, including
+Kubernetes and managed Airflow, is in [docs/install.md](docs/install.md).
+
+1. **Create a read-only Airflow user** (Airflow 3 with the FAB auth manager, or Airflow 2):
+
+   ```bash
+   docker compose exec airflow-apiserver airflow users create \
+     --role Viewer --username dagnose --password 'choose-a-long-password' \
+     --firstname Dagnose --lastname Bot --email dagnose@example.com
+   ```
+
+2. **Create `dagnose.env`** next to your `docker-compose.yml` and keep it out of git:
+
+   ```bash
+   DAGNOSE_AIRFLOW_USERNAME=dagnose
+   DAGNOSE_AIRFLOW_PASSWORD=choose-a-long-password
+   DAGNOSE_LLM_API_KEY=sk-ant-...
+   DAGNOSE_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+   ```
+
+3. **Add the worker** to your `docker-compose.yml`:
+
+   ```yaml
+   services:
+     dagnose:
+       image: ghcr.io/naresy/dagnose:latest
+       restart: unless-stopped
+       env_file: dagnose.env
+       environment:
+         DAGNOSE_AIRFLOW_URL: http://airflow-apiserver:8080   # Airflow 2: http://airflow-webserver:8080
+         DAGNOSE_WATCH: api
+       volumes:
+         - dagnose-data:/data
+
+   volumes:
+     dagnose-data:
+   ```
+
+4. **Check the setup, then start it:**
+
+   ```bash
+   docker compose run --rm dagnose check
+   docker compose up -d dagnose
+   ```
+
+   `check` verifies the Airflow connection and login, how failures are found, task log
+   access, the LLM key (free, no tokens used) and the notification channels, and tells
+   you what to change if something is wrong.
+
+## Installation
+
+| Method | Command | Use it for |
+|---|---|---|
+| Docker image | `docker pull ghcr.io/naresy/dagnose:latest` | Production. Includes the AWS, Google Cloud and Azure SDKs. Intel and ARM. |
+| pip | `pip install dagnose` | Running on a host, or installing the listener plugin into your Airflow image. |
+| pip with cloud extras | `pip install 'dagnose[aws]'`, `[gcp]`, `[azure]` | MWAA, Composer, Entra ID, Bedrock, Vertex AI, Foundry outside the Docker image. |
+| From source | `git clone` then `uv sync` | Development, see [CONTRIBUTING.md](CONTRIBUTING.md). |
+
+The PyPI package and the container image are published from release v0.1.0 onwards.
+
+Deployment guides: [Docker Compose and managed Airflow](docs/install.md),
+[Kubernetes, ECS, Cloud Run, Container Apps](docs/deploy-cloud.md).
+
+## Configuration
+
+All settings are environment variables starting with `DAGNOSE_`. They can also go in a
+`.env` file in the working directory; real environment variables take precedence.
+The most important ones:
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `DAGNOSE_AIRFLOW_URL` | `http://localhost:8080` | Airflow API server (Airflow 2: webserver) |
+| `DAGNOSE_AIRFLOW_USERNAME`, `_PASSWORD` | none | Read-only Airflow user (Viewer role) |
+| `DAGNOSE_AIRFLOW_TOKEN` | none | Bearer token instead of a username and password |
+| `DAGNOSE_AIRFLOW_AUTH` | `password` | `password`, `mwaa`, `google` (Composer) or `azure` (Entra ID) |
+| `DAGNOSE_WATCH` | `both` | How failures are found: `api` (polling), `plugin` or `both` |
+| `DAGNOSE_WATCH_DAG_IDS` | all DAGs | JSON list, to watch only some DAGs |
+| `DAGNOSE_LLM_PROVIDER` | `anthropic` | `anthropic`, `bedrock`, `vertex` or `foundry` |
+| `DAGNOSE_LLM_MODEL` | `claude-opus-5-5` | Model name |
+| `DAGNOSE_LLM_API_KEY` | none | Claude API or Foundry key |
+| `DAGNOSE_DIAGNOSE` | `true` | `false` collects and notifies without calling a model |
+| `DAGNOSE_MAX_DIAGNOSES_PER_HOUR` | `20` | Upper bound on model calls (`0` for no limit) |
+| `DAGNOSE_DEDUPE_WINDOW_HOURS` | `24` | Reuse the diagnosis of a repeated failure for this long |
+| `DAGNOSE_RENOTIFY_MINUTES` | `60` | Minimum time between "still failing" updates |
+| `DAGNOSE_SLACK_WEBHOOK_URL` | none | Slack incoming webhook |
+| `DAGNOSE_TEAMS_WEBHOOK_URL` | none | Microsoft Teams Workflows webhook |
+| `DAGNOSE_GOOGLE_CHAT_WEBHOOK_URL` | none | Google Chat space webhook |
+| `DAGNOSE_SMTP_HOST`, `_EMAIL_FROM`, `_EMAIL_TO` | none | Email; `_EMAIL_TO` is a JSON list |
+| `DAGNOSE_GIT_REPO_PATH`, `_GIT_DAGS_SUBDIR` | none | A clone of your DAG repository, for recent commits |
+| `DAGNOSE_HOME` | `~/.dagnose` | Where the queue and results are stored |
+
+Cloud-specific settings (MWAA environment, Vertex project, Foundry resource and others)
+are described in [docs/install.md](docs/install.md#managed-airflow-aws-google-cloud-azure).
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `dagnose check [--send-test]` | Verify the whole setup; `--send-test` posts a test message |
+| `dagnose worker [--once]` | Run the pipeline continuously (or until the queue is empty) |
+| `dagnose queue` | Show job counts by status |
+| `dagnose collect DAG_ID RUN_ID TASK_ID` | Collect one failure and print it as redacted JSON |
+| `dagnose redact FILE` | Redact a saved failure context |
+| `dagnose diagnose FILE` | Diagnose a saved failure context (calls the model) |
+| `dagnose notify FILE [--dry-run]` | Send or preview the card for a saved failure |
+| `dagnose outbox [--resend]` | Notifications that could not be delivered |
+| `dagnose version` | Print the version |
+
+## Security and privacy
+
+- **Secrets are removed before anything leaves the process.** Passwords in connection
+  strings, `password=`, `token=` and `api_key=` values, known token formats (AWS,
+  GitHub, Slack, Stripe, Google, OpenAI, Anthropic, JWT, private keys), email addresses,
+  random-looking keys, sensitive task parameters and git author names are replaced with
+  placeholders such as `[REDACTED:password#1]`. The same value always gets the same
+  placeholder, and the original values are never stored.
+- **Only redacted data is written to disk or sent** to the model and to chat or email.
+  Cards contain short quotes, never full logs, and are redacted a second time.
+- **Read-only towards Airflow.** A Viewer user is enough.
+- **Your own model account.** Prompts go to the Claude API or, if you prefer, to Claude
+  inside your own AWS, Google Cloud or Azure account.
+- To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
+## Costs
+
+Dagnose itself is free. The model is billed by your provider: a diagnosis with Claude
+Opus 5.5 costs about USD 0.03. Repeated failures reuse their diagnosis, and
+`DAGNOSE_MAX_DIAGNOSES_PER_HOUR` caps model calls. Setting a spending limit with your
+model provider is still recommended.
 
 ## Roadmap
 
-We build one piece at a time, and each piece is tested before the next one starts.
+Available now:
 
-**Status:** steps 1 to 4 done, plus CI/CD. **Next: step 5, incident memory.**
+- Failure detection by REST API polling or listener plugin, for Airflow 2 and 3
+- Collection, redaction, repeat detection, diagnosis with evidence checks
+- Slack, Microsoft Teams, Google Chat and email
+- Managed Airflow logins and the model inside AWS, Google Cloud and Azure
+- `dagnose check`, Docker image, Kubernetes and ECS deployment files
 
-- [x] **0. Foundation:** project scaffold, local Airflow 3 and 2 in Docker, 5 broken DAGs, CI/CD pipeline (lint, types, tests on Python 3.10–3.13, e2e on real Airflow 2 and 3, build, release to PyPI)
-- [x] **1. Collector:** capture real failure data from a local Airflow (Docker Compose + broken DAGs)
-  - listener plugin, lock-free spool, worker queue with retry backoff
-  - REST API client for Airflow 3 (`/api/v2`) and Airflow 2 (`/api/v1`), verified on 3.3.2 and 2.11.1
-  - collects exception and failing line, log tail, DAG source, task params, run history, git commits
-- [x] **2. Redactor:** secret scrubbing with tests
-  - placeholders keep evidence (hosts, users, ids, failing lines); the worker writes only redacted data
-  - checked on real Airflow 2 and 3: planted fake secrets never reach the saved context, and clean failures lose nothing but author names
-- [x] **3. Diagnosis agent:** LLM + read-only tools, structured JSON output
-  - live run on the 6 demo failures (Claude Opus 5.5, no hints in the DAG code): 6/6 categories right, 29/31 evidence quotes verified, about $0.03 per diagnosis
-  - Claude via the Anthropic SDK behind a provider interface; strict tools, structured output, refusal fallback, prompt caching
-  - evidence quotes checked against the context; confidence capped when they do not check out
-  - without credentials the worker still collects and redacts, and skips the diagnosis
-- [x] **4. Slack notifier:** diagnosis card with evidence
-  - Slack (incoming webhook) and email (SMTP); redacted again before sending; retries, then an outbox
-  - e2e on real Airflow 2 and 3: one card per failure, no planted secret in any card
-  - feedback buttons (correct / wrong / retry) need a Slack app endpoint: step 5
-- [ ] **5. Incident memory:** SQLite + embeddings, "seen this before" ← **next**
-- [ ] **6. Fix PRs:** GitHub / GitLab pull requests
-- [ ] **7. Eval set:** 30 failure cases, accuracy tracking
-- [ ] **8. Launch:** docs, 60-second demo video, Hacker News, r/dataengineering, Airflow Slack, LinkedIn
+Planned:
 
-Before launch, making it installable by other teams (in progress):
-- [x] API polling mode: no plugin, no shared folder (Kubernetes, Celery, managed Airflow)
-- [x] `dagnose check`: verify the Airflow, LLM and Slack setup (`--send-test` posts a test message)
-- [x] Worker Docker image (CI-tested; published to ghcr.io on release) and the first release prepared (v0.1.0)
-- [x] Install guide ([docs/install.md](docs/install.md)), tested by installing into a separate Airflow 3 project with a read-only Viewer user
+- **Impact:** which downstream DAGs and deadlines a failure affects
+- **Retry or fix:** whether a failure is safe to retry
+- **Prompt audit log** and a dry run that shows exactly what would be sent to the model
+- **Routing** of cards by DAG owner or tag
+- **Incident memory and feedback:** "seen this before, fixed by ...", correct or wrong buttons
+- **Fix pull requests** for code bugs, always approved by a person
+- **Evaluation set** of real failure cases to track diagnosis quality
 
+## Contributing
 
-## Principles
-
-- Advisory and read-only by default. Humans approve every fix.
-- No data leaves the customer's network, apart from redacted context sent to their own chosen LLM.
-- Give evidence instead of plausible guesses. Show the log lines that prove the diagnosis.
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains the development
+setup with local Airflow 2 and 3, the test suite and the end-to-end checks.
 
 ## License
 
-Apache 2.0, see [LICENSE](LICENSE). Changes: [CHANGELOG.md](CHANGELOG.md). Security issues: [SECURITY.md](SECURITY.md).
+Apache License 2.0, see [LICENSE](LICENSE). Release notes are in
+[CHANGELOG.md](CHANGELOG.md).
 
----
-
-Apache Airflow, Airflow and the Airflow logo are trademarks of the Apache Software Foundation. Dagnose is an independent project, not affiliated with or endorsed by the Apache Software Foundation.
+Apache Airflow, Airflow and the Airflow logo are trademarks of the Apache Software
+Foundation. Dagnose is an independent project and is not affiliated with or endorsed by
+the Apache Software Foundation.

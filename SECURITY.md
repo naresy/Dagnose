@@ -6,7 +6,7 @@ built to keep secrets out of everything it sends or stores: see "Redact" in the 
 ## Reporting a vulnerability
 
 Please **do not open a public issue**. Report it privately through GitHub:
-**Security → Report a vulnerability** on this repository (a private security advisory).
+**Security, then Report a vulnerability** on this repository (a private security advisory).
 Include what you found, how to reproduce it, and what an attacker could do with it.
 
 Especially welcome: any way a secret from a log, DAG, task parameter or connection

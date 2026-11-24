@@ -69,7 +69,7 @@ def _airflow(settings: Settings, transport: httpx.BaseTransport | None) -> Itera
             "google": f"{url} with Google credentials (Cloud Composer)",
             "azure": f"{url} with an Entra ID token",
         }.get(settings.airflow_auth, url)
-        yield Result("Airflow API", "ok", f"{via} · Airflow {version} · REST API {api}")
+        yield Result("Airflow API", "ok", f"{via}, Airflow {version}, REST API {api}")
 
         try:
             client._get("/dags", params={"limit": 1})
@@ -146,18 +146,18 @@ def _watch(settings: Settings, client: AirflowClient) -> Result:
     }[plugin_installed]
 
     if settings.watch == "api":
-        return Result("Finding failures", "ok", f"watch=api · {polling}")
+        return Result("Finding failures", "ok", f"watch=api, {polling}")
     if settings.watch == "both":
-        return Result("Finding failures", "ok", f"watch=both · {polling} · {plugin}")
+        return Result("Finding failures", "ok", f"watch=both, {polling}, {plugin}")
     # watch == "plugin": the plugin is the only source.
     if plugin_installed is False:
         return Result("Finding failures", "fail", "watch=plugin but the dagnose plugin is not installed in Airflow",
                       "pip install dagnose into the Airflow image, or set DAGNOSE_WATCH=api.")  # fmt: skip
     if not settings.spool_dir.exists():
-        return Result("Finding failures", "warn", f"watch=plugin · {plugin} · no spool folder yet at {settings.spool_dir}",
+        return Result("Finding failures", "warn", f"watch=plugin, {plugin}, no spool folder yet at {settings.spool_dir}",
                       "The Airflow containers and the worker must share this folder (DAGNOSE_HOME). "
                       "Or set DAGNOSE_WATCH=api, which needs no shared folder.")  # fmt: skip
-    return Result("Finding failures", "ok", f"watch=plugin · {plugin} · spool {settings.spool_dir}")
+    return Result("Finding failures", "ok", f"watch=plugin, {plugin}, spool {settings.spool_dir}")
 
 
 # ---- local ----------------------------------------------------------------------------
@@ -218,9 +218,7 @@ def _llm(settings: Settings, provider_factory: Callable[[Settings], Any] | None)
         return Result(
             "LLM", "warn", str(exc), "The model API is unreachable right now; try again later."
         )
-    return Result(
-        "LLM", "ok", f"{provider.name} · {provider.model} · key accepted (no tokens spent)"
-    )
+    return Result("LLM", "ok", f"{provider.name}, {provider.model}, key accepted (no tokens spent)")
 
 
 def _slack(settings: Settings, send_test: bool, transport: httpx.BaseTransport | None) -> Result:
@@ -233,7 +231,7 @@ def _slack(settings: Settings, send_test: bool, transport: httpx.BaseTransport |
         return Result("Slack", "warn", "the webhook URL does not look like https://hooks.slack.com/services/...",
                       "Copy the Incoming Webhook URL from your Slack app settings.")  # fmt: skip
     if not send_test:
-        return Result("Slack", "ok", "configured · run with --send-test to post a test message")
+        return Result("Slack", "ok", "configured, run with --send-test to post a test message")
     try:
         send_slack(url, {"text": ":white_check_mark: Dagnose test message: Slack is set up."},
                    transport=transport, sleep=lambda s: None)  # fmt: skip
@@ -262,7 +260,7 @@ def _chat_webhook(
     if not secret:
         return Result(service, "skip", f"not configured (optional: {env})")
     if not send_test:
-        return Result(service, "ok", "configured · run with --send-test to post a test message")
+        return Result(service, "ok", "configured, run with --send-test to post a test message")
     from datetime import datetime, timezone
 
     from dagnose.models import FailureContext, FailureJob
@@ -305,7 +303,7 @@ def _email(settings: Settings, send_test: bool, smtp_factory: Callable[..., Any]
         return Result(
             "Email",
             "ok",
-            f"{settings.smtp_host}:{settings.smtp_port} · run with --send-test to send a test email",
+            f"{settings.smtp_host}:{settings.smtp_port}, run with --send-test to send a test email",
         )
     msg = EmailMessage()
     msg["Subject"] = "[Dagnose] test message"
