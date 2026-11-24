@@ -191,7 +191,7 @@ def test_cli_exit_codes(make_settings: Any, monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(check_mod, "run_checks", lambda s, **k: iter(ok))
     out = CliRunner().invoke(app, ["check"])
     assert (
-        out.exit_code == 0 and "All good (1 warning(s))" in out.stdout and "→ fix it" in out.stdout
+        out.exit_code == 0 and "All good (1 warning(s))" in out.stdout and "fix: fix it" in out.stdout
     )
 
     bad = [Result("LLM", "fail", "no key", "set the key")]

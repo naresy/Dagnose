@@ -74,8 +74,8 @@ name and container port, not `localhost`).
 docker compose run --rm dagnose check
 ```
 
-Every line should be `✓` or `–` (optional, not configured). `check` also reads the log
-of a recent failed task, which catches a broken Airflow logging setup early. Anything marked `✗` comes
+Every line should be `[ok]` or `[skip]` (optional, not configured). `check` also reads the log
+of a recent failed task, which catches a broken Airflow logging setup early. Anything marked `[fail]` comes
 with the setting to change. `check` spends nothing: the LLM key is verified with the
 free token-counting endpoint. Add `--send-test` to post a test message to Slack / email.
 
@@ -103,8 +103,8 @@ docker compose exec dagnose ls /data/contexts /data/diagnoses
 |---|---|
 | Git history in diagnoses ("this broke after commit abc123") | Mount a clone of your DAG repo, e.g. `- ./:/repo:ro`, and set `DAGNOSE_GIT_REPO_PATH=/repo` and `DAGNOSE_GIT_DAGS_SUBDIR=dags` |
 | Only some DAGs | `DAGNOSE_WATCH_DAG_IDS=["sales_daily","finance_close"]` |
-| Microsoft Teams | In the channel, Workflows → "Post to a channel when a webhook request is received"; set `DAGNOSE_TEAMS_WEBHOOK_URL` to its URL |
-| Google Chat | In the space, Apps & integrations → Webhooks; set `DAGNOSE_GOOGLE_CHAT_WEBHOOK_URL` |
+| Microsoft Teams | In the channel, Workflows, then "Post to a channel when a webhook request is received"; set `DAGNOSE_TEAMS_WEBHOOK_URL` to its URL |
+| Google Chat | In the space, Apps & integrations, then Webhooks; set `DAGNOSE_GOOGLE_CHAT_WEBHOOK_URL` |
 | Email instead of / as well as Slack | `DAGNOSE_SMTP_HOST`, `_SMTP_PORT`, `_SMTP_USERNAME`, `_SMTP_PASSWORD`, `_EMAIL_FROM`, `_EMAIL_TO=["oncall@example.com"]` |
 | Instant detection (seconds, not 30 s) | Install the plugin into your Airflow image (`pip install dagnose`), share a folder between Airflow and the worker at `DAGNOSE_HOME`, and set `DAGNOSE_WATCH=both` |
 | No diagnosis, just collect + notify | `DAGNOSE_DIAGNOSE=false` |
@@ -208,13 +208,13 @@ Use a Deployment API token as `DAGNOSE_AIRFLOW_TOKEN` with the deployment's URL
 
 | `check` says | Fix |
 |---|---|
-| ✗ Airflow API … not found | `DAGNOSE_AIRFLOW_URL` must reach the API server from the Dagnose container (service name, container port) |
-| ✗ Airflow login … HTTP 401 / 403 | Wrong user or password, or the user lacks the Viewer role. Airflow 2: enable the basic auth backend |
-| ✗ LLM … no Anthropic credentials | Set `DAGNOSE_LLM_API_KEY`, or `DAGNOSE_DIAGNOSE=false` |
-| ✗ Airflow API … not installed: pip install 'dagnose[aws]' | Install the extra for your cloud, or use the Docker image (it has all of them) |
-| ✗ Airflow API … MWAA AccessDeniedException / HTTP 403 | The IAM principal lacks `airflow:InvokeRestApi` on `role/ENV/Viewer` (see MWAA above) |
-| ✗ Finding failures … plugin not installed | You set `WATCH=plugin`; use `api` (default for this guide) or install the plugin |
-| ! Task logs … Airflow could not serve the log | Your Airflow cannot show task logs (its own UI cannot either). Most often its components do not share `[api] secret_key`: set `AIRFLOW__API__SECRET_KEY` to the same value on every Airflow container, or share the logs folder, or use remote logging. Until then cards say "its log could not be read". |
+| [fail] Airflow API ... not found | `DAGNOSE_AIRFLOW_URL` must reach the API server from the Dagnose container (service name, container port) |
+| [fail] Airflow login ... HTTP 401 / 403 | Wrong user or password, or the user lacks the Viewer role. Airflow 2: enable the basic auth backend |
+| [fail] LLM ... no Anthropic credentials | Set `DAGNOSE_LLM_API_KEY`, or `DAGNOSE_DIAGNOSE=false` |
+| [fail] Airflow API ... not installed: pip install 'dagnose[aws]' | Install the extra for your cloud, or use the Docker image (it has all of them) |
+| [fail] Airflow API ... MWAA AccessDeniedException / HTTP 403 | The IAM principal lacks `airflow:InvokeRestApi` on `role/ENV/Viewer` (see MWAA above) |
+| [fail] Finding failures ... plugin not installed | You set `WATCH=plugin`; use `api` (default for this guide) or install the plugin |
+| [warn] Task logs ... Airflow could not serve the log | Your Airflow cannot show task logs (its own UI cannot either). Most often its components do not share `[api] secret_key`: set `AIRFLOW__API__SECRET_KEY` to the same value on every Airflow container, or share the logs folder, or use remote logging. Until then cards say "its log could not be read". |
 
 ## Costs and privacy
 
