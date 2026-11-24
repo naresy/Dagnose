@@ -125,6 +125,9 @@ def test_unlabelled_random_token() -> None:
         "site-packages/airflow/providers/standard/operators",  # path
         "manual__2026-11-22T15:34:51",  # run id
         "TAX_RATES_BY_COUNTRY_2026_V2",  # constant
+        "demo_orders_tax__compute_tax__manual__2026-11-24T14_13_18",  # file name (found in the test bed)
+        "scheduled__2026-11-24T03:00:00",  # run id
+        "dbt_run_marts_finance_v2_Daily20261124",  # task id with words
     ],
 )
 def test_evidence_is_not_random(token: str) -> None:
