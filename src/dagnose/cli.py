@@ -203,7 +203,9 @@ def notify_cmd(
     ctx = session.redact(FailureContext.model_validate_json(path.read_text()))
     diag_path = diagnosis or path.parent.parent / "diagnoses" / path.name
     run = DiagnosisRun.model_validate_json(diag_path.read_text()) if diag_path.exists() else None
-    reason = None if run else f"no diagnosis file ({diag_path})"
+    reason = None if run else "no diagnosis was found for this failure"
+    if run is None:
+        typer.echo(f"no diagnosis file at {diag_path}; sending the card without one", err=True)
     if dry_run:
         ui = settings.airflow_ui_url or settings.airflow_url
         card = build_card(ctx, run, ui_url=ui, reason=reason, session=session)
@@ -294,6 +296,10 @@ def review(
     out: Annotated[
         Optional[Path], typer.Option(help="With --report: also write it here.")  # noqa: UP045
     ] = None,
+    redo: Annotated[
+        Optional[str],  # noqa: UP045
+        typer.Option("--redo", help="Grade a DAG's diagnoses again (dag_id or dag_id.task_id)."),
+    ] = None,
 ) -> None:
     """Grade new diagnoses (category, root cause, fix), or report the results."""
     from dagnose import review as rv
@@ -307,42 +313,61 @@ def review(
         if out:
             out.write_text(text)
         return
-    todo = rv.pending(home)
-    if not todo:
-        typer.echo("Nothing to review. New diagnoses appear here after failures are diagnosed.")
-        return
+    if redo:
+        todo = rv.reviewed(home, redo)
+        if not todo:
+            typer.echo(f"No graded diagnoses for {redo}.")
+            raise typer.Exit(1)
+    else:
+        todo = rv.pending(home)
+        if not todo:
+            typer.echo("Nothing to review. New diagnoses appear here after failures are diagnosed.")
+            return
     typer.echo(f"{len(todo)} diagnosis(es) to review. Answer s to skip one, q to stop.\n")
     for i, path in enumerate(todo, 1):
         run = DiagnosisRun.model_validate_json(path.read_text())
         typer.echo(f"--- {i}/{len(todo)} " + "-" * 60)
         for line in rv.run_summary(run):
             typer.echo(line)
+        answers = _grade()
+        if isinstance(answers, str):  # "skip" or "quit"
+            if answers == "quit":
+                break
+            continue
+        rv.save_review(home, rv.make_review(path, run, answers))
+        typer.echo("saved\n")
+    typer.echo(f"Reviews are in {rv.reviews_path(home)}. Summary: dagnose review --report")
+    typer.echo("To change a grade: dagnose review --redo DAG_ID")
+
+
+def _grade() -> dict[str, str] | str:
+    """Ask the questions for one diagnosis and confirm before saving.
+    Returns the answers, or "skip" / "quit"."""
+    while True:
         typer.echo("")
         cat = _ask("Category correct?", ["yes", "no", "unsure"])
         if cat in ("skip", "quit"):
-            if cat == "quit":
-                break
-            continue
+            return cat
         root = _ask("Root cause?", ["correct", "partly", "wrong"])
+        if root in ("skip", "quit"):
+            return root
         fix = _ask("Suggested fix?", ["useful", "partly", "wrong", "none"])
-        if "quit" in (root, fix) or "skip" in (root, fix):
-            if "quit" in (root, fix):
-                break
-            continue
+        if fix in ("skip", "quit"):
+            return fix
         real = typer.prompt(
             "Real cause, in a few words (Enter to leave empty)", default="", show_default=False
         )
         notes = typer.prompt("Notes (Enter to leave empty)", default="", show_default=False)
-        answers = {
-            "category_correct": cat,
-            "root_cause": root,
-            "fix": fix,
-            "real_cause": real,
-            "notes": notes,
-        }
-        rv.save_review(home, rv.make_review(path, run, answers))
-        typer.echo("saved\n")
-    typer.echo(f"Reviews are in {rv.reviews_path(home)}. Summary: dagnose review --report")
+        typer.echo(f"  category: {cat} | root cause: {root} | fix: {fix}")
+        if typer.confirm("Save this grade?", default=True):
+            return {
+                "category_correct": cat,
+                "root_cause": root,
+                "fix": fix,
+                "real_cause": real,
+                "notes": notes,
+            }
+        typer.echo("  not saved, asking again")
 
 
 def _ask(question: str, choices: list[str]) -> str:

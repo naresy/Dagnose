@@ -74,7 +74,7 @@ Run manual__2026-11-23T16:53  |  Try 1  |  Airflow 3.3.2         [Open in Airflo
                                   6. notify    Slack / Teams / Google Chat / email
 ```
 
-- **Finding failures:** by default the worker polls the Airflow REST API every 30
+- **Finding failures:** by default the worker polls the Airflow REST API every 15
   seconds for failed tasks. No plugin, no changes to your Airflow image or DAGs, and it
   works with Kubernetes and Celery executors, managed Airflow, and tasks killed from
   outside (for example out of memory). An optional listener plugin reports failures

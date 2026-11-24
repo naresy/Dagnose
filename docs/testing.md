@@ -97,7 +97,7 @@ Weekly: `dagnose review --report --out week1.md` and read it together.
 | Secrets in cards, files or model requests | none |
 | Effect on Airflow | none (no slowdown, no errors caused by Dagnose) |
 | Cost per diagnosis | USD 0.05 or less on average |
-| Failure to diagnosis | 60 seconds or less for 90% of failures (polling every 30 s) |
+| Failure to diagnosis | 60 seconds or less for 90% of failures (polling every 15 s) |
 | Worker | runs the whole period without a manual restart |
 
 ## Checking for leaks

@@ -76,10 +76,17 @@ def reviews_path(home: Path) -> Path:
 
 
 def load_reviews(home: Path) -> list[Review]:
+    """One review per diagnosis; when a diagnosis was graded again, the last grade wins."""
     path = reviews_path(home)
     if not path.exists():
         return []
-    return [Review(**json.loads(line)) for line in path.read_text().splitlines() if line.strip()]
+    latest: dict[str, Review] = {}
+    for line in path.read_text().splitlines():
+        if line.strip():
+            review = Review(**json.loads(line))
+            latest.pop(review.diagnosis_file, None)  # keep the order of the latest grade
+            latest[review.diagnosis_file] = review
+    return list(latest.values())
 
 
 def pending(home: Path) -> list[Path]:
@@ -93,6 +100,17 @@ def pending(home: Path) -> list[Path]:
         if run.reused_from is None:
             out.append(path)
     return out
+
+
+def reviewed(home: Path, dag: str) -> list[Path]:
+    """Diagnoses already graded for a DAG (`dag_id`, or `dag_id.task_id`), to grade again."""
+    paths = []
+    for r in load_reviews(home):
+        if dag in (r.dag_id, f"{r.dag_id}.{r.task_id}"):
+            path = home / "diagnoses" / r.diagnosis_file
+            if path.exists():
+                paths.append(path)
+    return paths
 
 
 def make_review(path: Path, run: DiagnosisRun, answers: dict[str, str]) -> Review:
@@ -114,9 +132,13 @@ def make_review(path: Path, run: DiagnosisRun, answers: dict[str, str]) -> Revie
 
 
 def save_review(home: Path, review: Review) -> None:
+    """Add a grade, replacing an earlier grade of the same diagnosis."""
     home.mkdir(parents=True, exist_ok=True)
-    with reviews_path(home).open("a") as fh:
-        fh.write(json.dumps(asdict(review)) + "\n")
+    keep = [r for r in load_reviews(home) if r.diagnosis_file != review.diagnosis_file]
+    path = reviews_path(home)
+    tmp = path.with_suffix(".jsonl.tmp")
+    tmp.write_text("".join(json.dumps(asdict(r)) + "\n" for r in [*keep, review]))
+    tmp.replace(path)
 
 
 # ---- report ---------------------------------------------------------------------------

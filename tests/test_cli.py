@@ -62,3 +62,26 @@ def test_queue_lists_recent_jobs(tmp_path: object, monkeypatch: object) -> None:
     only = CliRunner().invoke(app, ["queue", "--dag", "demo_orders_tax"]).stdout
     assert "scenario_mapped" not in only and "demo_orders_tax" in only
     assert "task / run" not in CliRunner().invoke(app, ["queue", "-n", "0"]).stdout
+
+
+def test_notify_card_does_not_show_local_paths(tmp_path: object, monkeypatch: object) -> None:
+    """Without a diagnosis file the card says so in words; the path goes to the terminal."""
+    import shutil
+    from pathlib import Path
+
+    import pytest
+
+    from tests.conftest import FIXTURES
+
+    mp: pytest.MonkeyPatch = monkeypatch  # type: ignore[assignment]
+    home = Path(str(tmp_path))
+    mp.chdir(home)
+    mp.setenv("DAGNOSE_HOME", str(home))
+    ctx = home / "contexts" / "demo_orders_tax.json"
+    ctx.parent.mkdir()
+    shutil.copy(FIXTURES / "contexts" / "v2" / "demo_orders_tax.json", ctx)
+    result = CliRunner().invoke(app, ["notify", str(ctx), "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "no diagnosis was found for this failure" in result.stdout
+    assert str(home) not in result.stdout
+    assert "no diagnosis file at" in result.stderr
