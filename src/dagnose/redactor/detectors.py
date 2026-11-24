@@ -76,6 +76,11 @@ TOKEN_RE = re.compile(r"(?<![A-Za-z0-9+/_\-])[A-Za-z0-9+/_\-]{24,}={0,2}(?![A-Za
 _HEX_RE = re.compile(r"[0-9a-fA-F\-]+")
 _UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
 
+# Identifiers built from words and dates (run ids, file names such as
+# "demo_orders_tax__compute_tax__manual__2026-11-24T14_13_18"): a date, or a word of
+# four or more lowercase letters between separators. Random keys have neither.
+_IDENTIFIER_RE = re.compile(r"\d{4}-\d{2}-\d{2}|(?:^|[_\-/])[a-z]{4,}(?=[_\-/]|$)")
+
 PLACEHOLDER_RE = re.compile(r"\[REDACTED:[a-z_]+#\d+\]")
 
 # Values that are not secrets even under a sensitive key.
@@ -103,6 +108,8 @@ def looks_random(token: str) -> bool:
     they are evidence. Labelled secrets (api_key=...) are caught by KEY_VALUE_RE."""
     core = token.rstrip("=")
     if len(core) < 24 or _UUID_RE.fullmatch(core) or _HEX_RE.fullmatch(core):
+        return False
+    if _IDENTIFIER_RE.search(core):
         return False
     has_upper = any(c.isupper() for c in core)
     has_lower = any(c.islower() for c in core)
