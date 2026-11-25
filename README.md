@@ -227,7 +227,7 @@ are described in [docs/install.md](docs/install.md#managed-airflow-aws-google-cl
 ## Costs
 
 Dagnose itself is free. The model is billed by your provider: a diagnosis with Claude
-Opus 5.5 costs about USD 0.04. Repeated failures reuse their diagnosis, and
+Opus 5.5 costs about USD 0.04 to 0.06. Repeated failures reuse their diagnosis, and
 `DAGNOSE_MAX_DIAGNOSES_PER_HOUR` caps model calls. Setting a spending limit with your
 model provider is still recommended.
 

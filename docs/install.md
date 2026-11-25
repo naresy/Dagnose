@@ -276,8 +276,8 @@ Use a Deployment API token as `DAGNOSE_AIRFLOW_TOKEN` with the deployment's URL
 
 ## Costs and privacy
 
-- A diagnosis costs about **USD 0.04** with Claude Opus 5.5 (measured: USD 0.039 on
-  average). A failure that repeats reuses
+- A diagnosis costs about **USD 0.04 to 0.06** with Claude Opus 5.5 (measured: USD 0.039
+  on the demo DAGs, USD 0.055 on a real pipeline, where it reads more logs). A failure that repeats reuses
   its diagnosis for 24 hours (`DAGNOSE_DEDUPE_WINDOW_HOURS`) and gets a "still failing"
   card at most hourly (`DAGNOSE_RENOTIFY_MINUTES`); at most 20 diagnoses per hour
   (`DAGNOSE_MAX_DIAGNOSES_PER_HOUR`). Also set a spending limit with your model provider.
