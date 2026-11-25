@@ -11,7 +11,8 @@ Time: about 10 minutes.
 ## 1. Create a read-only Airflow user
 
 Dagnose only reads: DAGs, DAG runs, task instances and logs. The built-in **Viewer**
-role is enough.
+role is enough. Do not use your own login or the admin account: `check` (step 4) warns
+when the user can do more than read.
 
 **Airflow 3 with the FAB auth manager, or Airflow 2** (in your Airflow container):
 
@@ -30,7 +31,9 @@ password is written to the generated passwords file.
 
 ## 2. Settings: `dagnose.env`
 
-Next to your `docker-compose.yml`, create `dagnose.env` (keep it out of git):
+In the folder with your `docker-compose.yml`, create a **new** file `dagnose.env`. If
+the folder already has a `.env` (the official Airflow setup puts `AIRFLOW_UID` there),
+leave that file as it is: Airflow needs it, and Dagnose's settings go in their own file.
 
 ```bash
 DAGNOSE_AIRFLOW_USERNAME=dagnose
@@ -41,15 +44,26 @@ DAGNOSE_LLM_API_KEY=sk-ant-...            # Anthropic key for the diagnosis
 DAGNOSE_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...   # optional
 ```
 
+Write each line as `NAME=value`: no spaces around `=`, no quotes, no `export`. Then make
+the file readable only by you (it holds the API key) and keep it out of git:
+
 ```bash
 chmod 600 dagnose.env && echo dagnose.env >> .gitignore
 ```
 
 ## 3. Add the worker to your `docker-compose.yml`
 
+Two additions, in two different places of the file:
+
+1. The `dagnose` service goes **inside** `services:`, indented like your other services
+   (for example after the last one).
+2. `dagnose-data:` goes in the **top-level** `volumes:` at the end of the file, next to
+   the volumes that are already there (the official Airflow file has
+   `postgres-db-volume:`). It is not part of the service.
+
 ```yaml
 services:
-  # ... your Airflow services ...
+  # ... your Airflow services, unchanged ...
 
   dagnose:
     image: ghcr.io/naresy/dagnose:latest
@@ -57,16 +71,27 @@ services:
     env_file: dagnose.env
     environment:
       DAGNOSE_AIRFLOW_URL: http://airflow-apiserver:8080   # Airflow 2: http://airflow-webserver:8080
-      DAGNOSE_WATCH: api                                     # poll the REST API; no plugin needed
+      DAGNOSE_WATCH: api                                   # poll the REST API; no plugin needed
+      DAGNOSE_AIRFLOW_UI_URL: http://localhost:8080        # what you type in the browser
     volumes:
       - dagnose-data:/data
 
 volumes:
+  # ... your existing volumes, unchanged ...
   dagnose-data:
 ```
 
-The URL is your Airflow API server as seen from inside the compose network (service
-name and container port, not `localhost`).
+- `DAGNOSE_AIRFLOW_URL` is your Airflow API server as seen from **inside** the compose
+  network: service name and container port, not `localhost`.
+- `DAGNOSE_AIRFLOW_UI_URL` is the address you open Airflow with in your browser. The
+  "Open in Airflow" buttons on cards use it; without it they point at the internal name,
+  which a browser cannot open.
+- Check the file before going on: `docker compose config --quiet` prints nothing when it
+  is valid.
+
+> **Before the first release** the image is not on ghcr.io yet. Build it from the
+> source instead, and use `image: dagnose:local`:
+> `git clone https://github.com/naresy/dagnose && docker build -t dagnose:local dagnose`
 
 ## 4. Check the setup
 
@@ -91,11 +116,43 @@ From now on, every task that fails shows up in the log within about 15 seconds
 start Dagnose also looks back 60 minutes (`DAGNOSE_POLL_LOOKBACK_MINUTES`).
 
 To try it right away, make any task fail (or trigger a DAG you know fails) and watch
-the log. Saved results are in the `dagnose-data` volume:
+the log. In the official Airflow setup new DAGs start **paused**
+(`DAGS_ARE_PAUSED_AT_CREATION`): switch yours on in the UI before triggering it. Saved
+results are in the `dagnose-data` volume:
 
 ```bash
 docker compose exec dagnose ls /data/contexts /data/diagnoses
 ```
+
+## Reading a card
+
+- **Headline:** the category (code bug, configuration, permissions, dependency,
+  upstream data, timeout, infrastructure) and a **confidence** from 0 to 1. Above about
+  0.85 it is usually right; below about 0.7, read the root cause critically.
+- **Evidence:** quotes from the log, the DAG source, the task's inputs or the run
+  history. A check mark means the quote was found word for word; a question mark means
+  it was not, and counts for less.
+- **Suggested fix:** the smallest change that fixes it. Often it is not a code change
+  ("update the connection password", "the database is down"). "A patch is in the
+  diagnosis file" means a ready diff is in `/data/diagnoses/`.
+- **Secrets** appear as `[REDACTED:password#1]`. That is on purpose.
+- **Repeats:** the same failure again within 24 hours gets no new model call and at
+  most one "still failing (N times)" card per hour.
+
+## Weekly upkeep
+
+| Command (prefix with `docker compose exec dagnose`) | Look for |
+|---|---|
+| `dagnose queue` | `error 0`, nothing stuck in `pending`; the latest jobs by name |
+| `dagnose outbox` | `0 waiting`; if not (chat was down, webhook changed): `dagnose outbox --resend` |
+| `dagnose review` (add `-it` after `exec`) | grade new diagnoses, to know how far to trust them |
+| `dagnose review --report` | accuracy, cost and speed so far |
+
+**Upgrade:** `docker compose pull dagnose && docker compose up -d dagnose` (data is kept).
+
+**Remove:** delete the `dagnose` service and the `dagnose-data` volume line from
+`docker-compose.yml`, run `docker compose down` and `docker volume rm <project>_dagnose-data`,
+delete the `dagnose` user in Airflow, and remove the webhook in your chat tool.
 
 ## Optional
 
@@ -210,6 +267,7 @@ Use a Deployment API token as `DAGNOSE_AIRFLOW_TOKEN` with the deployment's URL
 |---|---|
 | [fail] Airflow API ... not found | `DAGNOSE_AIRFLOW_URL` must reach the API server from the Dagnose container (service name, container port) |
 | [fail] Airflow login ... HTTP 401 / 403 | Wrong user or password, or the user lacks the Viewer role. Airflow 2: enable the basic auth backend |
+| [warn] Airflow login ... more than read-only | The user is an Op or Admin. Create a Viewer user (step 1) and put it in `dagnose.env` |
 | [fail] LLM ... no Anthropic credentials | Set `DAGNOSE_LLM_API_KEY`, or `DAGNOSE_DIAGNOSE=false` |
 | [fail] Airflow API ... not installed: pip install 'dagnose[aws]' | Install the extra for your cloud, or use the Docker image (it has all of them) |
 | [fail] Airflow API ... MWAA AccessDeniedException / HTTP 403 | The IAM principal lacks `airflow:InvokeRestApi` on `role/ENV/Viewer` (see MWAA above) |
@@ -218,7 +276,8 @@ Use a Deployment API token as `DAGNOSE_AIRFLOW_TOKEN` with the deployment's URL
 
 ## Costs and privacy
 
-- A diagnosis costs about **$0.03** with Claude Opus 5.5. A failure that repeats reuses
+- A diagnosis costs about **USD 0.04** with Claude Opus 5.5 (measured: USD 0.039 on
+  average). A failure that repeats reuses
   its diagnosis for 24 hours (`DAGNOSE_DEDUPE_WINDOW_HOURS`) and gets a "still failing"
   card at most hourly (`DAGNOSE_RENOTIFY_MINUTES`); at most 20 diagnoses per hour
   (`DAGNOSE_MAX_DIAGNOSES_PER_HOUR`). Also set a spending limit with your model provider.

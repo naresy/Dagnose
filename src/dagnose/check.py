@@ -87,14 +87,31 @@ def _airflow(settings: Settings, transport: httpx.BaseTransport | None) -> Itera
             yield Result("Airflow login", "fail", f"user {who}: {exc}", fix)
             yield Result("Finding failures", "skip", "needs a working Airflow login")
             return
-        yield Result(
-            "Airflow login",
-            "ok",
-            f"user {settings.airflow_username or '(token)'} can read DAGs and task instances",
-        )
+        yield _login_result(settings, client)
 
         yield _watch(settings, client)
         yield _task_logs(client)
+
+
+def _login_result(settings: Settings, client: AirflowClient) -> Result:
+    """The login works; warn when it can do more than Dagnose needs. A Viewer cannot read
+    Airflow connections (they hold passwords), so being able to is a sign of an Op or
+    Admin account, which can also trigger, change and delete."""
+    who = settings.airflow_username or "(token)"
+    try:
+        client._get("/connections", params={"limit": 1})
+    except AirflowAPIError:
+        return Result(
+            "Airflow login", "ok", f"user {who} can read DAGs and task instances (read-only)"
+        )
+    return Result(
+        "Airflow login",
+        "warn",
+        f"user {who} can also read Airflow connections (and their passwords), so it is "
+        "more than read-only",
+        "Create a user with the Viewer role for Dagnose and use it instead "
+        "(docs/install.md, step 1). Dagnose only reads DAGs, runs, task instances and logs.",
+    )
 
 
 def _task_logs(client: AirflowClient) -> Result:

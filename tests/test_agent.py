@@ -113,6 +113,10 @@ def test_schema_is_strict() -> None:
     assert set(DIAGNOSIS_SCHEMA["required"]) == set(DIAGNOSIS_SCHEMA["properties"])
     assert set(DIAGNOSIS_SCHEMA["properties"]) == set(Diagnosis.model_fields)
     assert "REDACTED" in SYSTEM_PROMPT  # the model is told what placeholders mean
+    # Lessons from the MySQL pipeline test: earlier failures are not proof of this
+    # cause, and "does not exist" may mean renamed, so check what exists first.
+    assert "Earlier failures in run_history may have had other causes" in SYSTEM_PROMPT
+    assert "renamed or moved rather than never created" in SYSTEM_PROMPT
 
 
 # ---- loop ---------------------------------------------------------------------------

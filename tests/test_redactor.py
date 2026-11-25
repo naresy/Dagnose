@@ -83,6 +83,7 @@ def test_connection_string_keeps_user_and_host() -> None:
         ),
         ("Authorization: Bearer " + R, "Authorization: Bearer [REDACTED:token#1]"),
         ("client_secret='x9y8z7'", "client_secret='[REDACTED:secret#1]'"),
+        ("password=yes2026", "password=[REDACTED:secret#1]"),  # only the bare word is a flag
     ],
 )
 def test_key_value_secrets(text: str, expected: str) -> None:
@@ -98,6 +99,10 @@ def test_key_value_secrets(text: str, expected: str) -> None:
         "password=[REDACTED:secret#1]",
         "tokens=5 passwords_checked=3",
         "signal=SIGTERM",
+        # MySQL reports whether a password was sent; the flag helps the diagnosis
+        """(1045, "Access denied for user 'etl'@'172.22.0.8' (using password: YES)")""",
+        "Access denied for user 'etl'@'localhost' (using password: NO)",
+        "secret: false",
     ],
 )
 def test_not_secrets_are_kept(text: str) -> None:

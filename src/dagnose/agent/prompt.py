@@ -25,6 +25,12 @@ How to work:
   upstream task, in the task's input, or in a recent commit.
 - Use the tools only when the context is not enough, for example to read an upstream
   task's log or the log of the last successful run.
+- Earlier failures in run_history may have had other causes. Do not assume they share
+  this failure's cause, and do not build a story from them, unless you have read their
+  logs with a tool.
+- When the error says something does not exist (a table, file, column, connection or
+  key), it may have been renamed or moved rather than never created. Suggest checking
+  what does exist first; creating a new one can leave the real data behind.
 - If the evidence does not support a confident answer, say so: use category "unknown"
   or a low confidence rather than a plausible guess.
 - Values like [REDACTED:password#1] are secrets that were removed on purpose. The same
