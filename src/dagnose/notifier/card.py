@@ -17,6 +17,7 @@ from dagnose.redactor import RedactionSession, Redactor
 
 MAX_QUOTE = 200
 MAX_EVIDENCE = 4
+MAX_ROOT_CAUSE = 700  # longer explanations are cut at a sentence end; the file has it all
 CATEGORY_LABEL = {
     "code_bug": "Code bug",
     "upstream_data": "Upstream data",
@@ -29,10 +30,33 @@ CATEGORY_LABEL = {
 }
 
 
+# Where a quote comes from, in words a person reads on a card.
+SOURCE_LABEL = {
+    "log": "Task log",
+    "dag_source": "DAG code",
+    "exception": "Exception",
+    "task_params": "Task input",
+    "run_history": "Run history",
+    "git": "Git history",
+    "tool_result": "Log looked up by Dagnose",
+}
+
+
+def confidence_label(confidence: float) -> str:
+    """High / Medium / Low, with the number: easier to act on than a bare 0.55."""
+    word = "High" if confidence >= 0.85 else "Medium" if confidence >= 0.65 else "Low"
+    return f"{word} confidence ({confidence:.2f})"
+
+
+def evidence_label(source: str, line: int | None) -> str:
+    label = SOURCE_LABEL.get(source, source.replace("_", " ").capitalize())
+    return f"{label}, line {line}" if line is not None else label
+
+
 @dataclass
 class EvidenceRow:
     verified: bool
-    where: str  # e.g. "log:48", "dag_source:27", "exception"
+    where: str  # e.g. "Task log, line 48", "DAG code, line 27", "Exception"
     quote: str
 
 
@@ -41,7 +65,7 @@ class Card:
     dag_id: str
     task_id: str
     title: str  # "demo_orders_tax.compute_tax failed"
-    headline: str  # "Code bug · confidence 0.92" or "Not diagnosed"
+    headline: str  # "Code bug | High confidence (0.92)" or "Not diagnosed"
     summary: str
     root_cause: str | None = None
     evidence: list[EvidenceRow] = field(default_factory=list)
@@ -51,11 +75,22 @@ class Card:
     airflow_url: str | None = None
     note: str | None = None  # e.g. why there is no diagnosis, or that confidence was capped
     diagnosed: bool = False
+    evidence_found: tuple[int, int] | None = None  # (verified, total) for the evidence title
+    footer: str | None = None  # "Dagnose | claude-opus-5-5 | 9 s"
 
 
 def _short(text: str, limit: int) -> str:
     text = " ".join(text.split())
-    return text if len(text) <= limit else text[: limit - 1] + "…"
+    return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."
+
+
+def _sentences(text: str, limit: int) -> str:
+    """Up to `limit` characters, cut after the last full sentence that fits."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    cut = max(text.rfind(". ", 0, limit), text.rfind("? ", 0, limit), text.rfind("! ", 0, limit))
+    return text[: cut + 1] if cut > limit // 3 else _short(text, limit)
 
 
 def airflow_link(ctx: RedactedContext, ui_url: str) -> str:
@@ -136,20 +171,27 @@ def build_card(
         if exc:
             frame = next((f for f in reversed(exc.frames) if f.in_user_code), None)
             if frame:
-                where = f"{frame.filename.rsplit('/', 1)[-1]}:{frame.lineno}"
+                where = f"{frame.filename.rsplit('/', 1)[-1]}, line {frame.lineno}"
                 card.evidence.append(EvidenceRow(True, where, f"in {frame.name}"))
         return _with_repeats(card, None, occurrence, first_seen)
 
     d = run.diagnosis
     card.diagnosed = True
-    card.headline = f"{CATEGORY_LABEL.get(d.category, d.category)} · confidence {d.confidence:.2f}"
+    card.headline = (
+        f"{CATEGORY_LABEL.get(d.category, d.category)} | {confidence_label(d.confidence)}"
+    )
     card.summary = safe(d.summary, 500) or ""
-    card.root_cause = safe(d.root_cause, 1200)
+    root = safe(d.root_cause, 4000)
+    card.root_cause = _sentences(root, MAX_ROOT_CAUSE) if root else None
     card.fix = safe(d.suggested_fix, 1200)
     card.has_patch = bool(d.patch)
     for ev in d.evidence[:MAX_EVIDENCE]:
-        where = f"{ev.source}:{ev.line}" if ev.line is not None else ev.source
+        where = evidence_label(ev.source, ev.line)
         card.evidence.append(EvidenceRow(ev.verified, where, safe(ev.quote, MAX_QUOTE) or ""))
+    if run.evidence_total:
+        card.evidence_found = (run.evidence_verified, run.evidence_total)
+    model = run.served_model or run.model
+    card.footer = f"Dagnose | {model} | {run.duration_s:.0f} s"
     if run.confidence_capped:
         card.note = (
             f"Confidence lowered from {run.model_confidence:.2f}: only "
@@ -165,13 +207,13 @@ def _with_repeats(
     """A repeat of a known failure says so, instead of looking like a new incident."""
     if occurrence <= 1:
         return card
-    card.title = _short(f"{card.dag_id}.{card.task_id} still failing ({occurrence}×)", 140)
+    card.title = _short(f"{card.dag_id}.{card.task_id} still failing ({occurrence} times)", 140)
     since = (
         datetime.fromtimestamp(first_seen, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         if first_seen
         else "earlier"
     )
-    parts = [f"Same failure {occurrence}× since {since}."]
+    parts = [f"Same failure {occurrence} times since {since}."]
     if run is not None and run.reused_from:
         parts.append("Diagnosis reused from the first time: no new model call.")
     if card.note:

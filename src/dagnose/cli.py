@@ -267,7 +267,7 @@ def check(
     except ValidationError as exc:
         for err in exc.errors():
             name = "DAGNOSE_" + str(err["loc"][0]).upper()
-            typer.echo(f"✗ Settings: {name}: {err['msg']}", err=True)
+            typer.echo(f"[fail] Settings: {name}: {err['msg']}", err=True)
         raise typer.Exit(1) from exc
 
     labels = {"ok": "[ok]  ", "warn": "[warn]", "fail": "[fail]", "skip": "[skip]"}

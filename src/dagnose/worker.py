@@ -97,7 +97,9 @@ def process(qjob: QueuedJob, client: AirflowClient, settings: Settings) -> Path:
         if incident.diagnosis_path:
             run = reuse_diagnosis(Path(incident.diagnosis_path), redacted, fp)
             save_diagnosis(run, settings.diagnoses_dir)
-            log.info("job %s: same failure seen %d×, diagnosis reused", qjob.id, incident.count)
+            log.info(
+                "job %s: same failure seen %d times, diagnosis reused", qjob.id, incident.count
+            )
         elif store.take_model_call(settings.max_diagnoses_per_hour):
             run, reason = run_diagnosis(qjob.id, redacted, client, session, settings, fp)
             if run is not None and window_s > 0:
@@ -118,7 +120,9 @@ def process(qjob: QueuedJob, client: AirflowClient, settings: Settings) -> Path:
         if not due:
             store.mark_suppressed(fp)
             log.info(
-                "job %s: same failure %d×, card skipped (renotify later)", qjob.id, incident.count
+                "job %s: same failure %d times, card skipped (renotify later)",
+                qjob.id,
+                incident.count,
             )
             return path
         report = notify(

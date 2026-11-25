@@ -127,14 +127,20 @@ docker compose exec dagnose ls /data/contexts /data/diagnoses
 ## Reading a card
 
 - **Headline:** the category (code bug, configuration, permissions, dependency,
-  upstream data, timeout, infrastructure) and a **confidence** from 0 to 1. Above about
-  0.85 it is usually right; below about 0.7, read the root cause critically.
-- **Evidence:** quotes from the log, the DAG source, the task's inputs or the run
-  history. A check mark means the quote was found word for word; a question mark means
-  it was not, and counts for less.
-- **Suggested fix:** the smallest change that fixes it. Often it is not a code change
-  ("update the connection password", "the database is down"). "A patch is in the
-  diagnosis file" means a ready diff is in `/data/diagnoses/`.
+  upstream data, timeout, infrastructure) and how confident the diagnosis is: **High**
+  (0.85 or more, usually right), **Medium** (0.65 to 0.85) or **Low** (below 0.65: read
+  it critically). Under it, one sentence on what happened.
+- **What to do:** the smallest change that fixes it. Often it is not a code change
+  ("update the connection password", "the database is down"). "A ready-made patch is in
+  the diagnosis file" means a diff is in `/data/diagnoses/`.
+- **Why it failed:** the root cause in a few sentences. The full text is in the
+  diagnosis file.
+- **Evidence:** quotes from the task log, the DAG code, the task's input, the run
+  history, or a log Dagnose looked up itself. The title says how many were found word
+  for word; a quote that was not found is marked "(not found in the logs)" and lowers
+  the confidence.
+- **Details:** run, try, map index, Airflow version, duration, and an
+  "Open in Airflow" button.
 - **Secrets** appear as `[REDACTED:password#1]`. That is on purpose.
 - **Repeats:** the same failure again within 24 hours gets no new model call and at
   most one "still failing (N times)" card per hour.

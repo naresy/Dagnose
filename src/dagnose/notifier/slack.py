@@ -32,38 +32,53 @@ def _esc(text: str) -> str:
 
 def _section(text: str) -> dict[str, Any]:
     if len(text) > SECTION_LIMIT:
-        text = text[: SECTION_LIMIT - 1] + "…"
+        text = text[: SECTION_LIMIT - 3] + "..."
     return {"type": "section", "text": {"type": "mrkdwn", "text": text}}
 
 
+def _context(text: str) -> dict[str, Any]:
+    return {"type": "context", "elements": [{"type": "mrkdwn", "text": text}]}
+
+
+def evidence_title(card: Card) -> str:
+    if not card.diagnosed:
+        return "Failed at"
+    if card.evidence_found:
+        found, total = card.evidence_found
+        return f"Evidence ({found} of {total} quotes found in the logs)"
+    return "Evidence"
+
+
 def slack_payload(card: Card) -> dict[str, Any]:
-    icon = ":red_circle:" if card.diagnosed else ":warning:"
+    """Layout: what happened, what to do, why, the evidence, then the details. No emoji:
+    the category and confidence are words, and an unchecked quote says so."""
     blocks: list[dict[str, Any]] = [
-        {
-            "type": "header",
-            "text": {"type": "plain_text", "text": card.title[:HEADER_LIMIT], "emoji": True},
-        },
-        _section(f"{icon} *{_esc(card.headline)}*\n{_esc(card.summary)}"),
+        {"type": "header", "text": {"type": "plain_text", "text": card.title[:HEADER_LIMIT]}},
+        _section(f"*{_esc(card.headline)}*\n{_esc(card.summary)}"),
     ]
+    if card.fix:
+        extra = "\n_A ready-made patch is in the diagnosis file._" if card.has_patch else ""
+        blocks.append(_section(f"*What to do*\n{_esc(card.fix)}{extra}"))
     if card.root_cause:
-        blocks.append(_section(f"*Root cause*\n{_esc(card.root_cause)}"))
+        blocks.append(_section(f"*Why it failed*\n{_esc(card.root_cause)}"))
     if card.evidence:
         rows = [
-            f"{':white_check_mark:' if e.verified else ':grey_question:'} "
-            f"`{_esc(e.where)}` {_esc(e.quote)}"
+            f"{_esc(e.where)}: `{_esc(e.quote)}`"
+            + ("" if e.verified else "  _(not found in the logs)_")
             for e in card.evidence
         ]
-        label = "Evidence" if card.diagnosed else "Failed at"
-        blocks.append(_section(f"*{label}*\n" + "\n".join(rows)))
-    if card.fix:
-        extra = "\n_A patch is in the diagnosis file._" if card.has_patch else ""
-        blocks.append(_section(f"*Suggested fix*\n{_esc(card.fix)}{extra}"))
+        blocks.append(_section(f"*{evidence_title(card)}*\n" + "\n".join(rows)))
     if card.note:
-        blocks.append(
-            {"type": "context", "elements": [{"type": "mrkdwn", "text": _esc(card.note)}]}
-        )
-    facts = " · ".join(f"{k} `{_esc(v)}`" for k, v in card.facts)
-    blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": facts}]})
+        blocks.append(_context(_esc(card.note)))
+    blocks.append({"type": "divider"})
+    blocks.append(
+        {
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*{_esc(k)}*\n{_esc(v)}"} for k, v in card.facts[:10]
+            ],
+        }
+    )
     if card.airflow_url:
         blocks.append(
             {
@@ -73,10 +88,13 @@ def slack_payload(card: Card) -> dict[str, Any]:
                         "type": "button",
                         "text": {"type": "plain_text", "text": "Open in Airflow"},
                         "url": card.airflow_url,
+                        "style": "primary",
                     }
                 ],
             }
         )
+    if card.footer:
+        blocks.append(_context(_esc(card.footer)))
     return {"text": f"{card.title}: {card.summary}"[:300], "blocks": blocks}
 
 

@@ -10,7 +10,7 @@ from email.message import EmailMessage
 from typing import Any
 
 from dagnose.notifier.card import Card
-from dagnose.notifier.slack import NotifyError
+from dagnose.notifier.slack import NotifyError, evidence_title
 
 
 def email_subject(card: Card) -> str:
@@ -19,52 +19,75 @@ def email_subject(card: Card) -> str:
 
 def email_text(card: Card) -> str:
     lines = [card.title, card.headline, "", card.summary]
-    if card.root_cause:
-        lines += ["", "Root cause:", card.root_cause]
-    if card.evidence:
-        lines += ["", "Evidence:" if card.diagnosed else "Failed at:"]
-        lines += [f"  [{'ok' if e.verified else '??'}] {e.where}: {e.quote}" for e in card.evidence]
     if card.fix:
-        lines += ["", "Suggested fix:", card.fix]
+        lines += ["", "What to do:", card.fix]
         if card.has_patch:
-            lines.append("(A patch is in the diagnosis file.)")
+            lines.append("(A ready-made patch is in the diagnosis file.)")
+    if card.root_cause:
+        lines += ["", "Why it failed:", card.root_cause]
+    if card.evidence:
+        lines += ["", evidence_title(card) + ":"]
+        for ev in card.evidence:
+            mark = "" if ev.verified else " (not found in the logs)"
+            lines += [f"  {ev.where}{mark}:", f"    {ev.quote}"]
     if card.note:
         lines += ["", card.note]
     lines += ["", " | ".join(f"{k}: {v}" for k, v in card.facts)]
     if card.airflow_url:
         lines += ["", f"Open in Airflow: {card.airflow_url}"]
+    if card.footer:
+        lines += ["", card.footer]
     return "\n".join(lines) + "\n"
+
+
+MUTED = "color:#5f6368;font-size:13px"
+BODY = "font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#202124"
+BUTTON = "background:#2f6fed;color:#fff;padding:8px 14px;border-radius:4px;text-decoration:none"
 
 
 def email_html(card: Card) -> str:
     e = html.escape
+
+    def block(title: str, body: str) -> str:
+        return f"<h3 style='margin:16px 0 4px'>{e(title)}</h3>{body}"
+
     parts = [
-        f"<h2 style='margin:0'>{e(card.title)}</h2>",
-        f"<p><strong>{e(card.headline)}</strong><br>{e(card.summary)}</p>",
+        f"<h2 style='margin:0 0 4px'>{e(card.title)}</h2>",
+        f"<p style='margin:0'><strong>{e(card.headline)}</strong><br>{e(card.summary)}</p>",
     ]
+    if card.fix:
+        patch = (
+            f"<p style='{MUTED}'>A ready-made patch is in the diagnosis file.</p>"
+            if card.has_patch
+            else ""
+        )
+        parts.append(block("What to do", f"<p style='margin:0'>{e(card.fix)}</p>{patch}"))
     if card.root_cause:
-        parts.append(f"<h3>Root cause</h3><p>{e(card.root_cause)}</p>")
+        parts.append(block("Why it failed", f"<p style='margin:0'>{e(card.root_cause)}</p>"))
     if card.evidence:
         rows = "".join(
-            f"<li>{'&#10003;' if ev.verified else '?'} "
-            f"<code>{e(ev.where)}</code> {e(ev.quote)}</li>"
+            f"<tr><td style='{MUTED};padding:4px 12px 4px 0;vertical-align:top'>{e(ev.where)}"
+            f"{'' if ev.verified else '<br><em>not found in the logs</em>'}</td>"
+            f"<td style='padding:4px 0'><code>{e(ev.quote)}</code></td></tr>"
             for ev in card.evidence
         )
-        label = "Evidence" if card.diagnosed else "Failed at"
-        parts.append(f"<h3>{label}</h3><ul>{rows}</ul>")
-    if card.fix:
-        patch = "<p><em>A patch is in the diagnosis file.</em></p>" if card.has_patch else ""
-        parts.append(f"<h3>Suggested fix</h3><p>{e(card.fix)}</p>{patch}")
+        parts.append(block(evidence_title(card), f"<table>{rows}</table>"))
     if card.note:
-        parts.append(f"<p style='color:#666'>{e(card.note)}</p>")
-    parts.append(
-        "<p style='color:#666'>"
-        + " &middot; ".join(f"{e(k)}: <code>{e(v)}</code>" for k, v in card.facts)
-        + "</p>"
+        parts.append(f"<p style='{MUTED}'>{e(card.note)}</p>")
+    facts = "".join(
+        f"<td style='padding:0 16px 0 0'><span style='{MUTED}'>{e(k)}</span><br>{e(v)}</td>"
+        for k, v in card.facts
     )
+    parts.append("<hr style='border:0;border-top:1px solid #ddd;margin:16px 0'>")
+    parts.append(f"<table><tr>{facts}</tr></table>")
     if card.airflow_url:
-        parts.append(f"<p><a href='{e(card.airflow_url, quote=True)}'>Open in Airflow</a></p>")
-    return "<html><body style='font-family:sans-serif'>" + "".join(parts) + "</body></html>"
+        url = e(card.airflow_url, quote=True)
+        parts.append(
+            f"<p style='margin:16px 0'><a href='{url}' style='{BUTTON}'>Open in Airflow</a></p>"
+        )
+    if card.footer:
+        parts.append(f"<p style='{MUTED}'>{e(card.footer)}</p>")
+    return f"<html><body style='{BODY}'>" + "".join(parts) + "</body></html>"
 
 
 def build_email(card: Card, sender: str, recipients: list[str]) -> EmailMessage:

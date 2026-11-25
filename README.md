@@ -33,24 +33,29 @@ A failed task produces a card like this, a few seconds after Airflow marks it fa
 
 ```text
 demo_orders_tax.compute_tax failed
-Code bug - confidence 0.93
+Code bug | High confidence (0.93)
+compute_tax fails because the order from extract_orders has no 'country' field.
 
-compute_tax fails because the order produced by extract_orders has no 'country'
-field, but compute_tax looks up the tax rate by order['country'].
-
-Evidence (checked against the logs and code)
-  [found] dag_source:26  rate = TAX_RATES[order["country"]]
-  [found] dag_source:22  return {"order_id": 42, "amount": 19.99, "currency": "USD"}
-  [found] exception      KeyError: 'country'
-
-Suggested fix
+What to do
   Add a 'country' key to the dict returned by extract_orders.
+  A ready-made patch is in the diagnosis file.
 
-Run manual__2026-11-23T16:53  |  Try 1  |  Airflow 3.3.2         [Open in Airflow]
+Why it failed
+  compute_tax looks up the tax rate by order['country'], but extract_orders only
+  returns order_id, amount and currency. It has failed this way on every run.
+
+Evidence (3 of 3 quotes found in the logs)
+  DAG code, line 26:  rate = TAX_RATES[order["country"]]
+  DAG code, line 22:  return {"order_id": 42, "amount": 19.99, "currency": "USD"}
+  Exception:          KeyError: 'country'
+
+Run  manual__2026-11-23T16:53   Try  1   Airflow  3.3.2
+[Open in Airflow]
+Dagnose | claude-opus-5-5 | 9 s
 ```
 
-- **A diagnosis, not just an alert:** category, root cause, suggested fix and, for code
-  bugs, a patch.
+- **A diagnosis, not just an alert:** what to do first, then why it failed, the
+  category and how confident it is; for code bugs, a patch.
 - **Evidence you can check:** every quote is looked up in the real logs and DAG code.
   When quotes cannot be found, the confidence is lowered.
 - **Secrets removed first:** passwords, tokens, keys, emails and names are replaced
