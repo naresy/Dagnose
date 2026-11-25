@@ -82,12 +82,14 @@ def test_card_with_diagnosis() -> None:
     ctx = load(KEYERROR_V2)
     card = build_card(ctx, diagnosis_run(ctx), ui_url="http://airflow.test")
     assert card.title == "demo_orders_tax.compute_tax failed"
-    assert card.headline == "Code bug · confidence 0.60"
+    assert card.headline == "Code bug | Low confidence (0.60)"
     assert card.diagnosed and card.has_patch
     assert [(e.verified, e.where) for e in card.evidence] == [
-        (True, "dag_source:26"),
-        (False, "log:3"),
+        (True, "DAG code, line 26"),
+        (False, "Task log, line 3"),
     ]
+    assert card.evidence_found == (1, 2)
+    assert card.footer == "Dagnose | claude-opus-5-5 | 3 s"
     assert card.note and "lowered from 0.95" in card.note and "1 of 2" in card.note
     assert ("Try", "1") in card.facts
 
@@ -98,7 +100,9 @@ def test_card_without_diagnosis_shows_the_error_and_why() -> None:
     assert card.headline == "Not diagnosed" and not card.diagnosed
     assert card.summary == "KeyError: 'country'"
     assert card.note == "No diagnosis: no Anthropic credentials"
-    assert [(e.where, e.quote) for e in card.evidence] == [("orders_tax.py:26", "in compute_tax")]
+    assert [(e.where, e.quote) for e in card.evidence] == [
+        ("orders_tax.py, line 26", "in compute_tax")
+    ]
     assert card.airflow_url is None
 
 
@@ -120,9 +124,49 @@ def test_long_text_is_cut() -> None:
     card = build_card(ctx, diagnosis_run(ctx, diagnosis={"root_cause": "x" * 5000}), ui_url=None)
     assert (
         card.root_cause is not None
-        and len(card.root_cause) <= 1200
-        and card.root_cause.endswith("…")
+        and len(card.root_cause) <= 700
+        and card.root_cause.endswith("...")
     )
+
+
+def test_long_root_cause_is_cut_at_a_sentence_end() -> None:
+    ctx = load(KEYERROR_V2)
+    text = " ".join(f"Sentence number {i} explains a little more of the cause." for i in range(40))
+    card = build_card(ctx, diagnosis_run(ctx, diagnosis={"root_cause": text}), ui_url=None)
+    assert card.root_cause is not None and len(card.root_cause) <= 700
+    assert card.root_cause.endswith("cause.") and card.root_cause.startswith("Sentence number 0")
+
+
+@pytest.mark.parametrize(
+    ("confidence", "label"),
+    [
+        (0.92, "High confidence (0.92)"),
+        (0.7, "Medium confidence (0.70)"),
+        (0.55, "Low confidence (0.55)"),
+    ],
+)
+def test_confidence_in_words(confidence: float, label: str) -> None:
+    from dagnose.notifier.card import confidence_label
+
+    assert confidence_label(confidence) == label
+
+
+def test_cards_are_plain_ascii() -> None:
+    """No emoji or typographic symbols: cards must read the same in every client."""
+    from dagnose.notifier.chat import google_chat_payload, teams_payload
+
+    ctx = load(KEYERROR_V2)
+    card = build_card(ctx, diagnosis_run(ctx), ui_url="http://ui.test", occurrence=3, first_seen=0)
+    rendered = (
+        json.dumps(slack_payload(card), ensure_ascii=False)
+        + json.dumps(teams_payload(card), ensure_ascii=False)
+        + json.dumps(google_chat_payload(card), ensure_ascii=False)
+        + email_text(card)
+        + email_html(card)
+    )
+    assert rendered.isascii(), sorted({c for c in rendered if not c.isascii()})
+    assert ":white_check_mark:" not in rendered and ":red_circle:" not in rendered
+    assert "still failing (3 times)" in card.title
 
 
 @pytest.mark.parametrize(
@@ -163,21 +207,33 @@ def test_mapped_task_card_names_the_map_index() -> None:
 def test_slack_payload() -> None:
     ctx = load(KEYERROR_V2)
     payload = slack_payload(build_card(ctx, diagnosis_run(ctx), ui_url="http://ui.test"))
-    types = [b["type"] for b in payload["blocks"]]
-    assert types == [
+    blocks = payload["blocks"]
+    assert [b["type"] for b in blocks] == [
         "header",
-        "section",
-        "section",
-        "section",
-        "section",
-        "context",
-        "context",
+        "section",  # category, confidence, summary
+        "section",  # what to do
+        "section",  # why it failed
+        "section",  # evidence
+        "context",  # note: confidence lowered
+        "divider",
+        "section",  # run / try / airflow as fields
         "actions",
+        "context",  # footer: Dagnose | model | seconds
     ]
-    text = json.dumps(payload)
-    assert ":white_check_mark: `dag_source:26`" in text and ":grey_question: `log:3`" in text
-    assert "A patch is in the diagnosis file" in text
-    assert payload["blocks"][-1]["elements"][0]["url"].startswith("http://ui.test/dags/")
+    titles = [b["text"]["text"].split("\n")[0] for b in blocks[2:5]]
+    assert titles == [
+        "*What to do*",
+        "*Why it failed*",
+        "*Evidence (1 of 2 quotes found in the logs)*",
+    ]
+    evidence = blocks[4]["text"]["text"]
+    assert "DAG code, line 26: `" in evidence
+    assert "Task log, line 3: `disk full`  _(not found in the logs)_" in evidence
+    assert "A ready-made patch is in the diagnosis file" in blocks[2]["text"]["text"]
+    assert {"type": "mrkdwn", "text": "*Try*\n1"} in blocks[7]["fields"]
+    button = blocks[8]["elements"][0]
+    assert button["url"].startswith("http://ui.test/dags/") and button["style"] == "primary"
+    assert blocks[9]["elements"][0]["text"] == "Dagnose | claude-opus-5-5 | 3 s"
     assert payload["text"].startswith("demo_orders_tax.compute_tax failed: ")
 
 
@@ -194,7 +250,9 @@ def test_slack_section_limit() -> None:
     card = build_card(ctx, diagnosis_run(ctx), ui_url=None)
     card.root_cause = "y" * 5000  # bypass the card limit to test the Slack one
     blocks = slack_payload(card)["blocks"]
-    assert all(len(b["text"]["text"]) <= 3000 for b in blocks if b["type"] == "section")
+    assert all(
+        len(b["text"]["text"]) <= 3000 for b in blocks if "text" in b and b["type"] == "section"
+    )
 
 
 class Hook:
@@ -286,11 +344,13 @@ def test_email(make_settings: Any, smtp: type[FakeSMTP]) -> None:
     assert smtp.calls == ["connect smtp.test:587", "starttls", "login dagnose"]
     [msg] = smtp.sent
     assert (
-        msg["Subject"] == "[Dagnose] demo_orders_tax.compute_tax failed: Code bug · confidence 0.60"
+        msg["Subject"]
+        == "[Dagnose] demo_orders_tax.compute_tax failed: Code bug | Low confidence (0.60)"
     )
     assert msg["To"] == "oncall@example.test, data@example.test"
     assert msg.get_body(("plain",)).get_content().startswith("demo_orders_tax.compute_tax failed")
-    assert "<h3>Root cause</h3>" in msg.get_body(("html",)).get_content()
+    html_body = msg.get_body(("html",)).get_content()
+    assert "Why it failed</h3>" in html_body and "What to do</h3>" in html_body
 
 
 def test_email_html_is_escaped() -> None:

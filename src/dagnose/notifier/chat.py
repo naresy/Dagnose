@@ -12,6 +12,7 @@ import html
 from typing import Any
 
 from dagnose.notifier.card import Card
+from dagnose.notifier.slack import evidence_title
 
 # ---- Microsoft Teams ------------------------------------------------------------------
 
@@ -25,27 +26,31 @@ def teams_payload(card: Card) -> dict[str, Any]:
         text(card.headline, weight="Bolder", color="Attention" if card.diagnosed else "Warning"),
         text(card.summary),
     ]
-    if card.root_cause:
-        body += [text("Root cause", weight="Bolder", spacing="Medium"), text(card.root_cause)]
-    if card.evidence:
-        body.append(
-            text("Evidence" if card.diagnosed else "Failed at", weight="Bolder", spacing="Medium")
-        )
-        body += [
-            text(
-                f"{'✅' if e.verified else '❔'} `{e.where}` {e.quote}",
-                fontType="Monospace",
-                size="Small",
-            )
-            for e in card.evidence
-        ]
     if card.fix:
-        body += [text("Suggested fix", weight="Bolder", spacing="Medium"), text(card.fix)]
+        body += [text("What to do", weight="Bolder", spacing="Medium"), text(card.fix)]
         if card.has_patch:
-            body.append(text("A patch is in the diagnosis file.", isSubtle=True, size="Small"))
+            body.append(
+                text("A ready-made patch is in the diagnosis file.", isSubtle=True, size="Small")
+            )
+    if card.root_cause:
+        body += [text("Why it failed", weight="Bolder", spacing="Medium"), text(card.root_cause)]
+    if card.evidence:
+        body.append(text(evidence_title(card), weight="Bolder", spacing="Medium"))
+        for ev in card.evidence:
+            body.append(text(ev.where + ("" if ev.verified else " (not found in the logs)"),
+                             isSubtle=True, size="Small", spacing="Small"))  # fmt: skip
+            body.append(text(ev.quote, fontType="Monospace", size="Small", spacing="None"))
     if card.note:
-        body.append(text(card.note, isSubtle=True, size="Small"))
-    body.append({"type": "FactSet", "facts": [{"title": k, "value": v} for k, v in card.facts]})
+        body.append(text(card.note, isSubtle=True, size="Small", spacing="Medium"))
+    body.append(
+        {
+            "type": "FactSet",
+            "spacing": "Medium",
+            "facts": [{"title": k, "value": v} for k, v in card.facts],
+        }  # fmt: skip
+    )
+    if card.footer:
+        body.append(text(card.footer, isSubtle=True, size="Small"))
     content: dict[str, Any] = {
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "type": "AdaptiveCard",
@@ -81,24 +86,24 @@ def google_chat_payload(card: Card) -> dict[str, Any]:
     sections: list[dict[str, Any]] = [
         {"widgets": [para(f"<b>{e(card.headline)}</b><br>{e(card.summary)}")]}
     ]
+    if card.fix:
+        patch = "<br><i>A ready-made patch is in the diagnosis file.</i>" if card.has_patch else ""
+        sections.append({"header": "What to do", "widgets": [para(e(card.fix) + patch)]})
     if card.root_cause:
-        sections.append({"header": "Root cause", "widgets": [para(e(card.root_cause))]})
+        sections.append({"header": "Why it failed", "widgets": [para(e(card.root_cause))]})
     if card.evidence:
         rows = "<br>".join(
-            f"{'✅' if ev.verified else '❔'} "
-            f'<font color="#5b8cff">{e(ev.where)}</font> {e(ev.quote)}'
+            f"<b>{e(ev.where)}</b>{'' if ev.verified else ' <i>(not found in the logs)</i>'}"
+            f'<br><font color="#5f6368">{e(ev.quote)}</font>'
             for ev in card.evidence
         )
-        sections.append(
-            {"header": "Evidence" if card.diagnosed else "Failed at", "widgets": [para(rows)]}
-        )
-    if card.fix:
-        patch = "<br><i>A patch is in the diagnosis file.</i>" if card.has_patch else ""
-        sections.append({"header": "Suggested fix", "widgets": [para(e(card.fix) + patch)]})
+        sections.append({"header": evidence_title(card), "widgets": [para(rows)]})
     footer: list[dict[str, Any]] = []
     if card.note:
         footer.append(para(f"<i>{e(card.note)}</i>"))
-    footer.append(para(" · ".join(f"{e(k)}: {e(v)}" for k, v in card.facts)))
+    footer += [{"decoratedText": {"topLabel": e(k), "text": e(v)}} for k, v in card.facts]
+    if card.footer:
+        footer.append(para(f'<font color="#5f6368">{e(card.footer)}</font>'))
     if card.airflow_url:
         footer.append(
             {

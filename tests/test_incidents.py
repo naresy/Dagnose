@@ -189,8 +189,8 @@ def test_still_failing_card_after_the_renotify_interval(worker_env: Any) -> None
         occurrence=3,
         first_seen=cards[2]["first_seen"],
     )
-    assert card.title == "demo_orders_tax.compute_tax still failing (3×)"
-    assert card.note and "Same failure 3×" in card.note and "no new model call" in card.note
+    assert card.title == "demo_orders_tax.compute_tax still failing (3 times)"
+    assert card.note and "Same failure 3 times" in card.note and "no new model call" in card.note
 
 
 def test_hourly_limit_stops_model_calls(worker_env: Any, monkeypatch: pytest.MonkeyPatch) -> None:

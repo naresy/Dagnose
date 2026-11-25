@@ -35,7 +35,8 @@ def test_teams_adaptive_card() -> None:
     assert content["type"] == "AdaptiveCard" and content["version"] == "1.4"
     texts = [b.get("text", "") for b in content["body"]]
     assert texts[0] == "demo_orders_tax.compute_tax failed"
-    assert any(t.startswith("✅ `dag_source:26`") for t in texts)
+    assert "DAG code, line 26" in texts and "What to do" in texts and "Why it failed" in texts
+    assert texts.index("What to do") < texts.index("Why it failed")  # the action comes first
     assert content["actions"][0]["url"].startswith("http://ui.test/dags/demo_orders_tax/")
     assert any(b["type"] == "FactSet" for b in content["body"])
 
