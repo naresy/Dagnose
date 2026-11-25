@@ -254,7 +254,8 @@ Planned:
 ## Contributing
 
 Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains the development
-setup with local Airflow 2 and 3, the test suite and the end-to-end checks.
+setup with local Airflow 2 and 3, the test suite and the end-to-end checks. Please
+read the [code of conduct](CODE_OF_CONDUCT.md) too.
 
 ## License
 

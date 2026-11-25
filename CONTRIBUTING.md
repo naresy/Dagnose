@@ -3,6 +3,8 @@
 Thank you for helping. This guide covers the development setup, the tests, and how a
 change gets merged.
 
+Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+
 ## Development setup
 
 Requirements: Python 3.10 or newer, [uv](https://docs.astral.sh/uv/), Docker with at
