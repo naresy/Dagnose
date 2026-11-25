@@ -17,3 +17,6 @@ dev/airflow2/logs/
 dev/airflow2/dagnose-data/
 .coverage
 coverage.xml
+
+# macOS
+.DS_Store

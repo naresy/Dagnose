@@ -64,7 +64,10 @@ SENSITIVE_KEY = (
 SENSITIVE_KEY_RE = re.compile(rf"(?i){SENSITIVE_KEY}")
 KEY_VALUE_RE = re.compile(
     rf"(?i)(?<![A-Za-z0-9])(?P<key>{SENSITIVE_KEY})['\"]?\s*[:=]\s*"
-    r"(?:\"(?P<dq>[^\"\n]*)\"|'(?P<sq>[^'\n]*)'|(?P<bare>[^\s,;&'\"}\])]+))"
+    # A bare yes/no/true/false/none is a flag, not a secret: MySQL says
+    # "(using password: YES)" to tell whether a password was sent, which helps diagnosis.
+    r"(?:\"(?P<dq>[^\"\n]*)\"|'(?P<sq>[^'\n]*)'"
+    r"|(?!(?:yes|no|true|false|none|null)(?![^\s,;&'\"}\])]))(?P<bare>[^\s,;&'\"}\])]+))"
 )
 
 EMAIL_RE = re.compile(

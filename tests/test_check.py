@@ -24,6 +24,7 @@ class FakeAirflow:
         up: bool = True,
         failed: list[dict[str, Any]] | None = None,
         log: list[dict[str, Any]] | None = None,
+        admin: bool = False,
     ) -> None:
         self.login_ok, self.plugins, self.api, self.up = (
             login_ok,
@@ -32,6 +33,7 @@ class FakeAirflow:
             up,
         )
         self.failed, self.log = failed or [], log or []
+        self.admin = admin  # a Viewer gets 403 on /connections, as on a real Airflow
         self.slack: list[dict[str, Any]] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -50,6 +52,8 @@ class FakeAirflow:
             return httpx.Response(201 if self.login_ok else 401, json={"access_token": "t"})
         if not self.login_ok:
             return httpx.Response(403, json={"title": "Forbidden"})
+        if path.endswith("/connections"):
+            return httpx.Response(200 if self.admin else 403, json={"connections": []})
         if path.endswith("/plugins"):
             return httpx.Response(200, json={"plugins": [{"name": n} for n in self.plugins]})
         if path.endswith("/taskInstances/list"):
@@ -102,6 +106,14 @@ def test_all_good(make_settings: Any) -> None:
     assert "Airflow 3.3.2" in r["Airflow API"].detail
     assert "plugin installed" in r["Finding failures"].detail
     assert "no tokens spent" in r["LLM"].detail
+
+
+def test_login_that_can_do_more_than_read_is_a_warning(make_settings: Any) -> None:
+    viewer = results(make_settings, FakeAirflow())["Airflow login"]
+    assert viewer.status == "ok" and "read-only" in viewer.detail
+    admin = results(make_settings, FakeAirflow(admin=True))["Airflow login"]
+    assert admin.status == "warn" and "connections" in admin.detail
+    assert admin.fix is not None and "Viewer" in admin.fix
 
 
 def test_airflow_unreachable(make_settings: Any) -> None:
