@@ -55,7 +55,7 @@ def test_review_flow(home: Path) -> None:
     write_run(home, "c", reused=True)  # a repeat: not reviewed again
     assert [p.name for p in rv.pending(home)] == ["a.json", "b.json"]
 
-    answers = "y\nc\nu\n\n\n\n" + "n\nw\nw\nwrong connection id\nfound in run history\n\n"
+    answers = "y\nc\nu\n\n\ny\n" + "n\nw\nw\nwrong connection id\nfound in run history\ny\n"
     result = CliRunner().invoke(app, ["review"], input=answers)
     assert result.exit_code == 0, result.output
     assert "2 diagnosis(es) to review" in result.output and "[found] log:3" in result.output
@@ -78,14 +78,15 @@ def test_skip_and_quit(home: Path) -> None:
 
 def test_invalid_answer_is_asked_again(home: Path) -> None:
     write_run(home, "a")
-    result = CliRunner().invoke(app, ["review"], input="maybe\ny\nc\nu\n\n\n\n")
+    result = CliRunner().invoke(app, ["review"], input="maybe\ny\nc\nu\n\n\ny\n")
     assert "please answer one of" in result.output and len(rv.load_reviews(home)) == 1
 
 
 def test_answers_are_confirmed_before_saving(home: Path) -> None:
     write_run(home, "a")
-    # First pass: a slip (wrong root cause), declined at the confirm step; second pass saved.
-    answers = "y\nw\nn\n\n\nn\n" + "y\nc\nu\n\n\ny\n"
+    # First pass: a slip, then a habitual extra Enter at the confirm step: not saved.
+    # Second pass: saved with an explicit y.
+    answers = "y\nw\nn\n\n\n\n" + "y\nc\nu\n\n\ny\n"
     result = CliRunner().invoke(app, ["review"], input=answers)
     assert result.exit_code == 0, result.output
     assert "category: yes | root cause: wrong | fix: none" in result.output
@@ -97,10 +98,10 @@ def test_answers_are_confirmed_before_saving(home: Path) -> None:
 def test_redo_replaces_the_earlier_grade(home: Path) -> None:
     write_run(home, "a")
     write_run(home, "b")
-    CliRunner().invoke(app, ["review"], input="y\nw\nn\n\n\n\n" + "y\nc\nu\n\n\n\n")
+    CliRunner().invoke(app, ["review"], input="y\nw\nn\n\n\ny\n" + "y\nc\nu\n\n\ny\n")
     assert rv.pending(home) == []
 
-    result = CliRunner().invoke(app, ["review", "--redo", "dag_a.t"], input="y\nc\nu\n\n\n\n")
+    result = CliRunner().invoke(app, ["review", "--redo", "dag_a.t"], input="y\nc\nu\n\n\ny\n")
     assert result.exit_code == 0, result.output
     assert "1 diagnosis(es) to review" in result.output
     saved = {r.dag_id: r.root_cause for r in rv.load_reviews(home)}
