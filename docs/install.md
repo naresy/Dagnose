@@ -89,10 +89,6 @@ volumes:
 - Check the file before going on: `docker compose config --quiet` prints nothing when it
   is valid.
 
-> **Before the first release** the image is not on ghcr.io yet. Build it from the
-> source instead, and use `image: dagnose:local`:
-> `git clone https://github.com/naresy/dagnose && docker build -t dagnose:local dagnose`
-
 ## 4. Check the setup
 
 ```bash
